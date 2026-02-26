@@ -84,7 +84,7 @@ class WPZOOM_User_History_Admin {
         // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Nonce not required for reading user_id, value is cast to int
         $user_id = isset($_GET['user_id']) ? (int) $_GET['user_id'] : get_current_user_id();
 
-        wp_localize_script('wpzoom-user-history-admin', 'wpzoomUserHistoryData', [
+        wp_localize_script('wpzoom-user-history-admin', 'wpzoom_user_history_data', [
             'ajaxUrl' => admin_url('admin-ajax.php'),
             'nonce'   => wp_create_nonce('wpzoom_user_history_nonce'),
             'changeUsernameNonce' => wp_create_nonce('wpzoom_user_history_change_username'),
@@ -515,6 +515,7 @@ class WPZOOM_User_History_Admin {
             $key = array_search($old_username, $super_admins);
             if ($key !== false) {
                 $super_admins[$key] = $new_username;
+                // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Core WP multisite option, not a custom plugin option
                 update_site_option('site_admins', $super_admins);
             }
         }
