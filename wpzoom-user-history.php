@@ -96,11 +96,15 @@ class WPZOOM_User_History {
      * Constructor.
      */
     private function __construct() {
-        // Activation hook
+        // Activation / deactivation hooks
         register_activation_hook(__FILE__, [$this, 'activate']);
+        register_deactivation_hook(__FILE__, [$this, 'deactivate']);
 
         // Initialize hooks
         add_action('plugins_loaded', [$this, 'init']);
+
+        // Cron hook for log cleanup
+        add_action('wpzoom_user_history_cleanup', [$this, 'cleanup_old_entries']);
     }
 
     /**
@@ -109,6 +113,42 @@ class WPZOOM_User_History {
     public function activate() {
         $this->create_table();
         update_option('wpzoom_user_history_version', WPZOOM_USER_HISTORY_VERSION);
+
+        // Schedule daily cleanup if not already scheduled
+        if (!wp_next_scheduled('wpzoom_user_history_cleanup')) {
+            wp_schedule_event(time(), 'daily', 'wpzoom_user_history_cleanup');
+        }
+    }
+
+    /**
+     * Plugin deactivation.
+     */
+    public function deactivate() {
+        wp_clear_scheduled_hook('wpzoom_user_history_cleanup');
+    }
+
+    /**
+     * Delete log entries older than the configured retention period.
+     */
+    public function cleanup_old_entries() {
+        $days = (int) get_option('wpzoom_user_history_retention_days', 30);
+
+        // 0 means keep forever
+        if ($days < 1) {
+            return;
+        }
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . self::TABLE_NAME;
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Cron cleanup of custom plugin table
+        $wpdb->query(
+            $wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely constructed from $wpdb->prefix
+                "DELETE FROM $table_name WHERE created_at < DATE_SUB(NOW(), INTERVAL %d DAY)",
+                $days
+            )
+        );
     }
 
     /**
