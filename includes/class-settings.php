@@ -46,6 +46,12 @@ class WPZOOM_User_History_Settings {
             'default'           => '',
         ]);
 
+        register_setting('wpzoom_user_history_settings', 'wpzoom_user_history_track_ip', [
+            'type'              => 'string',
+            'sanitize_callback' => [$this, 'sanitize_checkbox'],
+            'default'           => '1',
+        ]);
+
         add_settings_section(
             'wpzoom_user_history_lock_section',
             __('Lock Account', 'wpzoom-user-history'),
@@ -60,6 +66,31 @@ class WPZOOM_User_History_Settings {
             'wpzoom-user-history',
             'wpzoom_user_history_lock_section'
         );
+
+        add_settings_section(
+            'wpzoom_user_history_privacy_section',
+            __('Privacy', 'wpzoom-user-history'),
+            [$this, 'render_privacy_section_description'],
+            'wpzoom-user-history'
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_track_ip',
+            __('IP Address Tracking', 'wpzoom-user-history'),
+            [$this, 'render_track_ip_field'],
+            'wpzoom-user-history',
+            'wpzoom_user_history_privacy_section'
+        );
+    }
+
+    /**
+     * Sanitize checkbox value.
+     *
+     * @param mixed $value Checkbox value.
+     * @return string '1' or '0'.
+     */
+    public function sanitize_checkbox($value) {
+        return $value ? '1' : '0';
     }
 
     /**
@@ -80,6 +111,29 @@ class WPZOOM_User_History_Settings {
                placeholder="<?php echo esc_attr__('Your account has been locked. Please contact the administrator.', 'wpzoom-user-history'); ?>" />
         <p class="description">
             <?php esc_html_e('This message is displayed on the login screen when a locked user attempts to log in. Leave empty to use the default message.', 'wpzoom-user-history'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the privacy settings section description.
+     */
+    public function render_privacy_section_description() {
+        echo '<p>' . esc_html__('Configure privacy-related settings for GDPR compliance.', 'wpzoom-user-history') . '</p>';
+    }
+
+    /**
+     * Render the IP tracking settings field.
+     */
+    public function render_track_ip_field() {
+        $value = get_option('wpzoom_user_history_track_ip', '1');
+        ?>
+        <label>
+            <input type="checkbox" name="wpzoom_user_history_track_ip" value="1" <?php checked($value, '1'); ?> />
+            <?php esc_html_e('Record IP addresses when users make changes to their own profiles', 'wpzoom-user-history'); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e('When enabled, the IP address is recorded for each change and displayed in the Account History table. Disable this to comply with GDPR or other privacy regulations.', 'wpzoom-user-history'); ?>
         </p>
         <?php
     }

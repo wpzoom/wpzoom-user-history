@@ -154,6 +154,7 @@ class WPZOOM_User_History_Admin {
                                 <th class="column-field"><?php esc_html_e('Field', 'wpzoom-user-history'); ?></th>
                                 <th class="column-change"><?php esc_html_e('Change', 'wpzoom-user-history'); ?></th>
                                 <th class="column-by"><?php esc_html_e('Changed By', 'wpzoom-user-history'); ?></th>
+                                <th class="column-ip"><?php esc_html_e('IP', 'wpzoom-user-history'); ?></th>
                             </tr>
                         </thead>
                         <tbody id="user-history-tbody">
@@ -282,6 +283,15 @@ class WPZOOM_User_History_Admin {
                 $output .= '<span class="history-self">' . esc_html__('Self', 'wpzoom-user-history') . '</span>';
             } else {
                 $output .= '<a href="' . esc_url($changed_by_link) . '">' . esc_html($changed_by_name) . '</a>';
+            }
+            $output .= '</td>';
+
+            // IP column (only show for self-changes)
+            $output .= '<td class="column-ip">';
+            if ($is_self && !empty($entry->ip_address)) {
+                $output .= '<a href="https://ipinfo.io/' . esc_attr($entry->ip_address) . '" target="_blank" rel="noopener noreferrer">' . esc_html($entry->ip_address) . '</a>';
+            } else {
+                $output .= '&mdash;';
             }
             $output .= '</td>';
 

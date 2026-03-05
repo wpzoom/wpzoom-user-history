@@ -122,6 +122,7 @@ class WPZOOM_User_History {
             old_value longtext,
             new_value longtext,
             change_type varchar(50) NOT NULL DEFAULT 'update',
+            ip_address varchar(45) DEFAULT '',
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             KEY user_id (user_id),
@@ -215,6 +216,11 @@ class WPZOOM_User_History {
 
         $table_name = $wpdb->prefix . self::TABLE_NAME;
 
+        $ip_address = '';
+        if (get_option('wpzoom_user_history_track_ip', '1') === '1') {
+            $ip_address = $this->get_client_ip();
+        }
+
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Inserting into custom plugin table
         $wpdb->insert(
             $table_name,
@@ -226,10 +232,40 @@ class WPZOOM_User_History {
                 'old_value'   => $old_value,
                 'new_value'   => $new_value,
                 'change_type' => $change_type,
+                'ip_address'  => $ip_address,
                 'created_at'  => current_time('mysql'),
             ],
-            ['%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s']
+            ['%d', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s']
         );
+    }
+
+    /**
+     * Get the client IP address.
+     *
+     * @return string IP address or empty string.
+     */
+    private function get_client_ip() {
+        $headers = [
+            'HTTP_CF_CONNECTING_IP', // Cloudflare
+            'HTTP_X_FORWARDED_FOR',  // Standard proxy header
+            'REMOTE_ADDR',           // Direct connection
+        ];
+
+        foreach ($headers as $header) {
+            if (!empty($_SERVER[ $header ])) {
+                // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Validated with filter_var below
+                $ip = wp_unslash($_SERVER[ $header ]);
+                // X-Forwarded-For can contain multiple IPs — take the first
+                if (strpos($ip, ',') !== false) {
+                    $ip = trim(explode(',', $ip)[0]);
+                }
+                if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                    return $ip;
+                }
+            }
+        }
+
+        return '';
     }
 
     /**
