@@ -1,4 +1,4 @@
-=== WPZOOM User History ===
+=== WPZOOM User History - Lock Users & Change Usernames ===
 Contributors: wpzoom
 Tags: user history, user log, audit log, change username, user tracking
 Requires at least: 6.5
