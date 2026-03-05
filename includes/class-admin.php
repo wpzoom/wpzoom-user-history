@@ -733,7 +733,12 @@ class WPZOOM_User_History_Admin {
         }
 
         // Change the username
-        $this->change_username($user_id, $old_username, $new_username);
+        $result = $this->change_username($user_id, $old_username, $new_username);
+
+        if (is_wp_error($result)) {
+            $response['message'] = $result->get_error_message();
+            wp_send_json($response);
+        }
 
         $response['success'] = true;
         /* translators: %s: the new username */
@@ -744,14 +749,69 @@ class WPZOOM_User_History_Admin {
     /**
      * Change a user's username.
      *
+     * Uses a database transaction to ensure all updates succeed or none do.
+     *
      * @param int    $user_id      User ID.
      * @param string $old_username Old username.
      * @param string $new_username New username.
+     * @return true|WP_Error True on success, WP_Error on failure.
      */
     private function change_username($user_id, $old_username, $new_username) {
         global $wpdb;
 
-        // Log the change before making it
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Transaction control for atomic username change
+        $wpdb->query('START TRANSACTION');
+
+        // Update user_login
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- user_login is not writable via WP API
+        $result = $wpdb->update(
+            $wpdb->users,
+            ['user_login' => $new_username],
+            ['ID' => $user_id],
+            ['%s'],
+            ['%d']
+        );
+
+        if ($result === false) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Rollback on failure
+            $wpdb->query('ROLLBACK');
+            return new WP_Error('db_error', __('Failed to update username. No changes were made.', 'wpzoom-user-history'));
+        }
+
+        // Update user_nicename if it matches the old username
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Conditional update requires direct query
+        $result = $wpdb->query($wpdb->prepare(
+            "UPDATE $wpdb->users SET user_nicename = %s WHERE ID = %d AND user_nicename = %s",
+            sanitize_title($new_username),
+            $user_id,
+            sanitize_title($old_username)
+        ));
+
+        if ($result === false) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Rollback on failure
+            $wpdb->query('ROLLBACK');
+            return new WP_Error('db_error', __('Failed to update username. No changes were made.', 'wpzoom-user-history'));
+        }
+
+        // Update display_name if it matches the old username
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Conditional update requires direct query
+        $result = $wpdb->query($wpdb->prepare(
+            "UPDATE $wpdb->users SET display_name = %s WHERE ID = %d AND display_name = %s",
+            $new_username,
+            $user_id,
+            $old_username
+        ));
+
+        if ($result === false) {
+            // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Rollback on failure
+            $wpdb->query('ROLLBACK');
+            return new WP_Error('db_error', __('Failed to update username. No changes were made.', 'wpzoom-user-history'));
+        }
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Commit transaction
+        $wpdb->query('COMMIT');
+
+        // Log the change after successful commit
         $this->plugin->log_change(
             $user_id,
             get_current_user_id(),
@@ -761,34 +821,6 @@ class WPZOOM_User_History_Admin {
             $new_username,
             'update'
         );
-
-        // Update user_login
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- user_login is not writable via WP API
-        $wpdb->update(
-            $wpdb->users,
-            ['user_login' => $new_username],
-            ['ID' => $user_id],
-            ['%s'],
-            ['%d']
-        );
-
-        // Update user_nicename if it matches the old username
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Conditional update requires direct query
-        $wpdb->query($wpdb->prepare(
-            "UPDATE $wpdb->users SET user_nicename = %s WHERE ID = %d AND user_nicename = %s",
-            sanitize_title($new_username),
-            $user_id,
-            sanitize_title($old_username)
-        ));
-
-        // Update display_name if it matches the old username
-        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- Conditional update requires direct query
-        $wpdb->query($wpdb->prepare(
-            "UPDATE $wpdb->users SET display_name = %s WHERE ID = %d AND display_name = %s",
-            $new_username,
-            $user_id,
-            $old_username
-        ));
 
         // Handle multisite super admin
         if (is_multisite()) {
@@ -812,6 +844,8 @@ class WPZOOM_User_History_Admin {
          * @param string $new_username The new username.
          */
         do_action('wpzoom_user_history_username_changed', $user_id, $old_username, $new_username);
+
+        return true;
     }
 
     // =========================================================================
