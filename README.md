@@ -1,6 +1,12 @@
 # WPZOOM User History
 
+[![WordPress Plugin Version](https://img.shields.io/wordpress/plugin/v/wpzoom-user-history)](https://wordpress.org/plugins/wpzoom-user-history/)
+[![WordPress Plugin Downloads](https://img.shields.io/wordpress/plugin/dt/wpzoom-user-history)](https://wordpress.org/plugins/wpzoom-user-history/)
+[![WordPress Plugin Rating](https://img.shields.io/wordpress/plugin/stars/wpzoom-user-history)](https://wordpress.org/plugins/wpzoom-user-history/)
+
 A WordPress plugin that tracks changes made to user accounts, monitors login activity, manages sessions, and allows admins to lock/unlock users and change usernames.
+
+**[Download from WordPress.org](https://wordpress.org/plugins/wpzoom-user-history/)**
 
 <img width="1547" height="1071" alt="image" src="https://github.com/user-attachments/assets/1ba77413-4e63-416b-8ca4-242e499acadb" />
 
