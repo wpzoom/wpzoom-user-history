@@ -27,6 +27,69 @@
     margin-left: 5px;
 }
 
+/* ==========================================================================
+   Tabs
+   ========================================================================== */
+
+.user-history-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #c3c4c7;
+    margin-bottom: 0;
+}
+
+.user-history-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    text-decoration: none;
+    color: #50575e;
+    font-weight: 500;
+    border: 1px solid transparent;
+    border-bottom: none;
+    margin-bottom: -1px;
+    background: transparent;
+    border-radius: 3px 3px 0 0;
+    transition: color 0.15s;
+}
+
+.user-history-tab:hover {
+    color: #135e96;
+}
+
+.user-history-tab.active {
+    color: #1d2327;
+    background: #f6f7f7;
+    border-color: #c3c4c7;
+    border-bottom-color: #fff;
+}
+
+.user-history-tab-count {
+    display: inline-block;
+    background: #f0f0f1;
+    color: #50575e;
+    padding: 0 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    line-height: 18px;
+    min-width: 18px;
+    text-align: center;
+}
+
+.user-history-tab.active .user-history-tab-count {
+    background: #2271b1;
+    color: #fff;
+}
+
+.user-history-tab-content {
+    display: none;
+}
+
+.user-history-tab-content.active {
+    display: block;
+}
+
 /* Empty state */
 .user-history-empty {
     padding: 20px;
@@ -39,7 +102,7 @@
 
 /* History table */
 .user-history-table {
-    margin-top: 10px;
+    margin-top: -1px;
     border-collapse: collapse;
     border-bottom-width: 2px !important;
 }
@@ -293,6 +356,41 @@
 .user-history-entry.type-unlock .history-new-value {
     background: #d4edda;
     color: #0a6b2e;
+}
+
+/* ==========================================================================
+   Login Events
+   ========================================================================== */
+
+.history-event-label {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.history-event-label.event-login {
+    background: #d4edda;
+    color: #0a6b2e;
+}
+
+.history-event-label.event-logout {
+    background: #f0f0f1;
+    color: #50575e;
+}
+
+.history-event-label.event-login_failed {
+    background: #fef0f0;
+    color: #b32d2e;
+}
+
+.user-history-table .column-event {
+    width: 120px;
+}
+
+.user-history-table .column-browser {
+    width: 180px;
 }
 
 /* Users list locked column */

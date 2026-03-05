@@ -122,27 +122,32 @@ class WPZOOM_User_History_Admin {
             return;
         }
 
-        $history = $this->plugin->get_user_history($user->ID, 20);
-        $total_count = $this->plugin->get_user_history_count($user->ID);
+        $changes        = $this->plugin->get_user_history($user->ID, 20, 0, 'changes');
+        $changes_count  = $this->plugin->get_user_history_count($user->ID, 'changes');
+        $logins         = $this->plugin->get_user_history($user->ID, 20, 0, 'logins');
+        $logins_count   = $this->plugin->get_user_history_count($user->ID, 'logins');
         ?>
         <div class="user-history-section">
             <h2><?php esc_html_e('Account History', 'wpzoom-user-history'); ?></h2>
-            <p class="description">
-                <?php esc_html_e('A log of changes made to this account.', 'wpzoom-user-history'); ?>
-                <?php if ($total_count > 0): ?>
-                    <span class="user-history-count">
-                        <?php
-                        /* translators: %d: number of changes recorded */
-                        printf(
-                            esc_html(_n('%d change recorded', '%d changes recorded', $total_count, 'wpzoom-user-history')),
-                            (int) $total_count
-                        ); ?>
-                    </span>
-                <?php endif; ?>
-            </p>
 
-            <div class="user-history-log" id="user-history-log" data-user-id="<?php echo esc_attr($user->ID); ?>">
-                <?php if (empty($history)): ?>
+            <div class="user-history-tabs">
+                <a href="#" class="user-history-tab active" data-tab="changes">
+                    <?php esc_html_e('Changes', 'wpzoom-user-history'); ?>
+                    <?php if ($changes_count > 0): ?>
+                        <span class="user-history-tab-count"><?php echo esc_html($changes_count); ?></span>
+                    <?php endif; ?>
+                </a>
+                <a href="#" class="user-history-tab" data-tab="logins">
+                    <?php esc_html_e('Logins', 'wpzoom-user-history'); ?>
+                    <?php if ($logins_count > 0): ?>
+                        <span class="user-history-tab-count"><?php echo esc_html($logins_count); ?></span>
+                    <?php endif; ?>
+                </a>
+            </div>
+
+            <!-- Changes tab -->
+            <div class="user-history-tab-content active" id="user-history-tab-changes" data-user-id="<?php echo esc_attr($user->ID); ?>">
+                <?php if (empty($changes)): ?>
                     <p class="user-history-empty">
                         <?php esc_html_e('No changes have been recorded yet.', 'wpzoom-user-history'); ?>
                     </p>
@@ -157,24 +162,59 @@ class WPZOOM_User_History_Admin {
                                 <th class="column-ip"><?php esc_html_e('IP', 'wpzoom-user-history'); ?></th>
                             </tr>
                         </thead>
-                        <tbody id="user-history-tbody">
+                        <tbody class="user-history-tbody">
                             <?php
                             // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Output is escaped in render_history_rows()
-                            echo $this->render_history_rows($history);
+                            echo $this->render_history_rows($changes);
                             ?>
                         </tbody>
                     </table>
 
                     <div class="user-history-actions">
-                        <?php if ($total_count > 20): ?>
-                            <button type="button" class="button" id="user-history-load-more"
-                                    data-offset="20" data-total="<?php echo esc_attr($total_count); ?>">
+                        <?php if ($changes_count > 20): ?>
+                            <button type="button" class="button user-history-load-more"
+                                    data-tab="changes" data-offset="20" data-total="<?php echo esc_attr($changes_count); ?>">
                                 <?php esc_html_e('Load More', 'wpzoom-user-history'); ?>
                             </button>
                         <?php endif; ?>
                         <button type="button" class="button user-history-clear-log" id="user-history-clear-log">
                             <?php esc_html_e('Clear Log', 'wpzoom-user-history'); ?>
                         </button>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Logins tab -->
+            <div class="user-history-tab-content" id="user-history-tab-logins" data-user-id="<?php echo esc_attr($user->ID); ?>">
+                <?php if (empty($logins)): ?>
+                    <p class="user-history-empty">
+                        <?php esc_html_e('No login events have been recorded yet.', 'wpzoom-user-history'); ?>
+                    </p>
+                <?php else: ?>
+                    <table class="widefat user-history-table">
+                        <thead>
+                            <tr>
+                                <th class="column-date"><?php esc_html_e('Date', 'wpzoom-user-history'); ?></th>
+                                <th class="column-event"><?php esc_html_e('Event', 'wpzoom-user-history'); ?></th>
+                                <th class="column-ip"><?php esc_html_e('IP Address', 'wpzoom-user-history'); ?></th>
+                                <th class="column-browser"><?php esc_html_e('Browser', 'wpzoom-user-history'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody class="user-history-tbody">
+                            <?php
+                            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Output is escaped in render_login_rows()
+                            echo $this->render_login_rows($logins);
+                            ?>
+                        </tbody>
+                    </table>
+
+                    <div class="user-history-actions">
+                        <?php if ($logins_count > 20): ?>
+                            <button type="button" class="button user-history-load-more"
+                                    data-tab="logins" data-offset="20" data-total="<?php echo esc_attr($logins_count); ?>">
+                                <?php esc_html_e('Load More', 'wpzoom-user-history'); ?>
+                            </button>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>
@@ -302,6 +342,96 @@ class WPZOOM_User_History_Admin {
     }
 
     /**
+     * Render login history table rows.
+     *
+     * @param array $history Array of login history entry objects.
+     * @return string HTML output.
+     */
+    public function render_login_rows($history) {
+        $output = '';
+
+        foreach ($history as $entry) {
+            $row_class = 'user-history-entry type-' . esc_attr($entry->change_type);
+
+            $output .= '<tr class="' . $row_class . '">';
+
+            // Date column
+            $output .= '<td class="column-date">';
+            $output .= '<span class="history-date">' . esc_html(date_i18n(get_option('date_format'), strtotime($entry->created_at))) . '</span>';
+            $output .= '<span class="history-time">' . esc_html(date_i18n(get_option('time_format'), strtotime($entry->created_at))) . '</span>';
+            $output .= '</td>';
+
+            // Event column
+            $output .= '<td class="column-event">';
+            $output .= '<span class="history-event-label event-' . esc_attr($entry->change_type) . '">' . esc_html($entry->field_label) . '</span>';
+            $output .= '</td>';
+
+            // IP column
+            $output .= '<td class="column-ip">';
+            if (!empty($entry->ip_address)) {
+                $output .= '<a href="https://ipinfo.io/' . esc_attr($entry->ip_address) . '" target="_blank" rel="noopener noreferrer">' . esc_html($entry->ip_address) . '</a>';
+            } else {
+                $output .= '&mdash;';
+            }
+            $output .= '</td>';
+
+            // Browser column
+            $output .= '<td class="column-browser">';
+            if (!empty($entry->new_value)) {
+                $output .= esc_html($this->parse_user_agent($entry->new_value));
+            } else {
+                $output .= '&mdash;';
+            }
+            $output .= '</td>';
+
+            $output .= '</tr>';
+        }
+
+        return $output;
+    }
+
+    /**
+     * Parse user agent string to extract browser and OS.
+     *
+     * @param string $ua User agent string.
+     * @return string Formatted string like "Chrome on macOS".
+     */
+    private function parse_user_agent($ua) {
+        // Detect browser
+        $browser = 'Other';
+        if (preg_match('/Edg[e\/]/i', $ua)) {
+            $browser = 'Edge';
+        } elseif (preg_match('/OPR|Opera/i', $ua)) {
+            $browser = 'Opera';
+        } elseif (preg_match('/Chrome/i', $ua)) {
+            $browser = 'Chrome';
+        } elseif (preg_match('/Safari/i', $ua) && !preg_match('/Chrome/i', $ua)) {
+            $browser = 'Safari';
+        } elseif (preg_match('/Firefox/i', $ua)) {
+            $browser = 'Firefox';
+        } elseif (preg_match('/MSIE|Trident/i', $ua)) {
+            $browser = 'IE';
+        }
+
+        // Detect OS
+        $os = 'Other';
+        if (preg_match('/Windows/i', $ua)) {
+            $os = 'Windows';
+        } elseif (preg_match('/Macintosh|Mac OS/i', $ua)) {
+            $os = 'macOS';
+        } elseif (preg_match('/Linux/i', $ua) && !preg_match('/Android/i', $ua)) {
+            $os = 'Linux';
+        } elseif (preg_match('/Android/i', $ua)) {
+            $os = 'Android';
+        } elseif (preg_match('/iPhone|iPad|iPod/i', $ua)) {
+            $os = 'iOS';
+        }
+
+        /* translators: 1: browser name, 2: operating system name */
+        return sprintf(__('%1$s on %2$s', 'wpzoom-user-history'), $browser, $os);
+    }
+
+    /**
      * Truncate long values for display.
      *
      * @param string $value  Value to truncate.
@@ -330,25 +460,26 @@ class WPZOOM_User_History_Admin {
         }
 
         $user_id = isset($_POST['user_id']) ? (int) $_POST['user_id'] : 0;
-        $offset = isset($_POST['offset']) ? (int) $_POST['offset'] : 0;
+        $offset  = isset($_POST['offset']) ? (int) $_POST['offset'] : 0;
+        $tab     = isset($_POST['tab']) && $_POST['tab'] === 'logins' ? 'logins' : 'changes';
 
         if (!$user_id) {
             wp_send_json_error(['message' => 'Invalid user ID']);
         }
 
-        $history = $this->plugin->get_user_history($user_id, 20, $offset);
+        $history = $this->plugin->get_user_history($user_id, 20, $offset, $tab);
 
         if (empty($history)) {
             wp_send_json_success(['html' => '', 'hasMore' => false]);
         }
 
-        $html = $this->render_history_rows($history);
-        $total = $this->plugin->get_user_history_count($user_id);
+        $html  = ($tab === 'logins') ? $this->render_login_rows($history) : $this->render_history_rows($history);
+        $total = $this->plugin->get_user_history_count($user_id, $tab);
         $has_more = ($offset + 20) < $total;
 
         wp_send_json_success([
-            'html'    => $html,
-            'hasMore' => $has_more,
+            'html'      => $html,
+            'hasMore'   => $has_more,
             'newOffset' => $offset + 20,
         ]);
     }

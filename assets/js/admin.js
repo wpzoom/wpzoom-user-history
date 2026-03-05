@@ -5,6 +5,7 @@
     'use strict';
 
     $(document).ready(function() {
+        initTabs();
         initLoadMore();
         initChangeUsername();
         initClearHistory();
@@ -12,22 +13,42 @@
     });
 
     /**
-     * Initialize load more functionality
+     * Initialize tab switching
      */
-    function initLoadMore() {
-        var $loadMoreBtn = $('#user-history-load-more');
-        var $tbody = $('#user-history-tbody');
+    function initTabs() {
+        var $tabs = $('.user-history-tab');
 
-        if (!$loadMoreBtn.length) {
+        if (!$tabs.length) {
             return;
         }
 
-        $loadMoreBtn.on('click', function(e) {
+        $tabs.on('click', function(e) {
+            e.preventDefault();
+
+            var $tab = $(this);
+            var tabName = $tab.data('tab');
+
+            // Update active tab
+            $tabs.removeClass('active');
+            $tab.addClass('active');
+
+            // Show/hide tab content
+            $('.user-history-tab-content').removeClass('active');
+            $('#user-history-tab-' + tabName).addClass('active');
+        });
+    }
+
+    /**
+     * Initialize load more functionality
+     */
+    function initLoadMore() {
+        $(document).on('click', '.user-history-load-more', function(e) {
             e.preventDefault();
 
             var $btn = $(this);
             var offset = parseInt($btn.data('offset'), 10);
-            var total = parseInt($btn.data('total'), 10);
+            var tab = $btn.data('tab') || 'changes';
+            var $tbody = $btn.closest('.user-history-tab-content').find('.user-history-tbody');
 
             if ($btn.hasClass('loading')) {
                 return;
@@ -42,7 +63,8 @@
                     action: 'wpzoom_user_history_load_more',
                     nonce: wpzoom_user_history_data.nonce,
                     user_id: wpzoom_user_history_data.userId,
-                    offset: offset
+                    offset: offset,
+                    tab: tab
                 },
                 success: function(response) {
                     if (response.success && response.data.html) {
@@ -52,10 +74,10 @@
                             $btn.data('offset', response.data.newOffset);
                             $btn.removeClass('loading').text('Load More');
                         } else {
-                            $btn.parent().remove();
+                            $btn.remove();
                         }
                     } else {
-                        $btn.parent().remove();
+                        $btn.remove();
                     }
                 },
                 error: function() {
@@ -257,12 +279,12 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        // Replace the history section with empty message
-                        var $historyLog = $('#user-history-log');
-                        $historyLog.html('<p class="user-history-empty">No changes have been recorded yet.</p>');
+                        // Replace both tab contents with empty messages
+                        $('#user-history-tab-changes').html('<p class="user-history-empty">No changes have been recorded yet.</p>');
+                        $('#user-history-tab-logins').html('<p class="user-history-empty">No login events have been recorded yet.</p>');
 
-                        // Update the count
-                        $('.user-history-count').remove();
+                        // Update the tab counts
+                        $('.user-history-tab-count').remove();
                     } else {
                         alert(response.data.message || i18n.errorGeneric);
                         $btn.removeClass('loading').prop('disabled', false).text(i18n.clearLog || 'Clear Log');

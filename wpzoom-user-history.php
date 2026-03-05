@@ -74,6 +74,13 @@ class WPZOOM_User_History {
     public $settings;
 
     /**
+     * Login tracker instance.
+     *
+     * @var WPZOOM_User_History_Login_Tracker
+     */
+    public $login_tracker;
+
+    /**
      * Get singleton instance.
      *
      * @return WPZOOM_User_History
@@ -148,12 +155,14 @@ class WPZOOM_User_History {
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-lock.php';
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-admin.php';
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-settings.php';
+        require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-login-tracker.php';
 
         // Create feature instances (each registers its own hooks in constructor)
-        $this->tracker  = new WPZOOM_User_History_Tracker($this);
-        $this->lock     = new WPZOOM_User_History_Lock($this);
-        $this->admin    = new WPZOOM_User_History_Admin($this);
-        $this->settings = new WPZOOM_User_History_Settings();
+        $this->tracker       = new WPZOOM_User_History_Tracker($this);
+        $this->lock          = new WPZOOM_User_History_Lock($this);
+        $this->admin         = new WPZOOM_User_History_Admin($this);
+        $this->settings      = new WPZOOM_User_History_Settings();
+        $this->login_tracker = new WPZOOM_User_History_Login_Tracker($this);
     }
 
     /**
@@ -271,22 +280,29 @@ class WPZOOM_User_History {
     /**
      * Get history for a user.
      *
-     * @param int $user_id User ID.
-     * @param int $limit   Number of entries.
-     * @param int $offset  Offset.
+     * @param int    $user_id User ID.
+     * @param int    $limit   Number of entries.
+     * @param int    $offset  Offset.
+     * @param string $type    Type of entries: 'changes' (default) or 'logins'.
      * @return array
      */
-    public function get_user_history($user_id, $limit = 50, $offset = 0) {
+    public function get_user_history($user_id, $limit = 50, $offset = 0, $type = 'changes') {
         global $wpdb;
 
         $table_name = $wpdb->prefix . self::TABLE_NAME;
 
+        if ($type === 'logins') {
+            $type_clause = "AND change_type IN ('login', 'logout', 'login_failed')";
+        } else {
+            $type_clause = "AND change_type NOT IN ('login', 'logout', 'login_failed')";
+        }
+
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Querying custom history table
         $results = $wpdb->get_results(
             $wpdb->prepare(
-                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely constructed from $wpdb->prefix
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name and type clause are safely constructed
                 "SELECT * FROM $table_name
-                WHERE user_id = %d
+                WHERE user_id = %d $type_clause
                 ORDER BY created_at DESC
                 LIMIT %d OFFSET %d",
                 $user_id,
@@ -301,19 +317,26 @@ class WPZOOM_User_History {
     /**
      * Get total history count for a user.
      *
-     * @param int $user_id User ID.
+     * @param int    $user_id User ID.
+     * @param string $type    Type of entries: 'changes' (default) or 'logins'.
      * @return int
      */
-    public function get_user_history_count($user_id) {
+    public function get_user_history_count($user_id, $type = 'changes') {
         global $wpdb;
 
         $table_name = $wpdb->prefix . self::TABLE_NAME;
 
+        if ($type === 'logins') {
+            $type_clause = "AND change_type IN ('login', 'logout', 'login_failed')";
+        } else {
+            $type_clause = "AND change_type NOT IN ('login', 'logout', 'login_failed')";
+        }
+
         // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Counting from custom history table
         return (int) $wpdb->get_var(
             $wpdb->prepare(
-                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is safely constructed from $wpdb->prefix
-                "SELECT COUNT(*) FROM $table_name WHERE user_id = %d",
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name and type clause are safely constructed
+                "SELECT COUNT(*) FROM $table_name WHERE user_id = %d $type_clause",
                 $user_id
             )
         );
