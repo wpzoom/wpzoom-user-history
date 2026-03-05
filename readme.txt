@@ -1,29 +1,49 @@
 === WPZOOM User History ===
 Contributors: wpzoom
 Tags: user history, user log, audit log, change username, user tracking
-Requires at least: 6.0
+Requires at least: 6.5
 Tested up to: 6.9
 Requires PHP: 7.4
 Stable tag: 1.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Track changes made to user accounts and allow admins to change usernames.
+Track changes made to user accounts, lock/unlock users, and allow admins to change usernames.
 
 == Description ==
 
-User History tracks all changes made to user profiles and displays a complete history log on the user edit page. This is especially useful when users change their email or username, making it easy to find them by their previous details.
+User History tracks all changes made to user profiles and displays a complete history log on the user edit page. It also lets admins lock or unlock user accounts, change usernames, and search for users by their previous details.
 
-**Features:**
+**Profile Change Tracking:**
 
 * **Track Profile Changes** - Automatically logs changes to username, email, display name, first/last name, nickname, website, bio, and role
 * **Password Change Logging** - Records when passwords are changed (without storing any password data)
-* **Change Username** - Allows admins to change usernames directly from the user edit page (WordPress normally doesn't allow this)
-* **Search by Previous Values** - Find users on the All Users page by their old email or username
 * **See Who Made Changes** - Each log entry shows whether the user changed their own profile or if an admin made the change
+* **Search by Previous Values** - Find users on the All Users page by their old email or username
 * **Clear History** - Admins can clear the history log for any user
-* **Multisite Compatible** - Works with WordPress multisite installations
-* **Members Plugin Compatible** - Works with the Members plugin for multiple role assignments
+
+**Lock/Unlock User Accounts:**
+
+* **Lock User Accounts** - Prevent users from logging in by locking their account
+* **Instant Session Termination** - Locked users are logged out immediately and all active sessions are destroyed
+* **Application Password Blocking** - Locked users cannot authenticate via application passwords (REST API, XML-RPC)
+* **Status Column** - See which users are locked at a glance with a status column on the All Users page
+* **Bulk Lock/Unlock** - Lock or unlock multiple users at once from the All Users page
+* **Row Actions** - Quickly lock or unlock individual users from the All Users list
+* **Locked Users Filter** - Filter the All Users list to show only locked accounts
+* **Custom Lock Message** - Set a custom message shown to locked users on the login screen (Settings > User History)
+* **WP-CLI Access** - Locked users can still be managed via WP-CLI
+
+**Admin Tools:**
+
+* **Change Username** - Allows admins to change usernames directly from the user edit page (WordPress normally doesn't allow this)
+* **Delete User Button** - Quick access button to delete a user directly from their profile page
+
+**Compatibility:**
+
+* **Multisite Compatible** - Works with WordPress multisite installations, including super admin username changes
+* **Members Plugin Compatible** - Correctly tracks role changes when using the Members plugin for multiple role assignments
+* **Migration from Lock User Account plugin** - Automatically migrates locked users from the Lock User Account plugin
 
 **Use Cases:**
 
@@ -31,6 +51,8 @@ User History tracks all changes made to user profiles and displays a complete hi
 * Track when and who changed user roles
 * Audit user profile modifications for security
 * Allow username changes without database access
+* Lock compromised or suspended accounts instantly
+* Temporarily disable user access without deleting accounts
 
 == Installation ==
 
@@ -78,15 +100,40 @@ Yes. The plugin works on multisite installations and properly handles super admi
 
 Yes. The plugin correctly tracks role changes when using the Members plugin, which allows assigning multiple roles to users.
 
+= How do I lock a user account? =
+
+There are several ways to lock a user:
+
+1. **User edit page** - Go to a user's profile and click "Lock Account" in the Account Status section
+2. **Row action** - Hover over a user on the All Users page and click "Lock"
+3. **Bulk action** - Select multiple users on the All Users page, choose "Lock" from the Bulk Actions dropdown, and click Apply
+
+Locked users are logged out immediately and cannot log back in until unlocked.
+
+= What happens when a user is locked? =
+
+* All active sessions are destroyed immediately
+* The user cannot log in via the login form
+* Application password authentication (REST API, XML-RPC) is blocked
+* A customizable error message is shown on the login screen
+* WP-CLI access is still allowed so admins can manage the account
+
+= How do I customize the locked account message? =
+
+Go to Settings > User History. You can set a custom message that locked users will see when they try to log in. Leave it empty to use the default message.
+
 = How do I clear a user's history? =
 
 On the user edit page, scroll down to the Account History section and click the "Clear Log" button.
 
+= I was using the Lock User Account plugin. Will my locked users be migrated? =
+
+Yes. When you activate User History, any users locked with the Lock User Account plugin will be automatically migrated to the new lock system.
+
 == Screenshots ==
 
 1. Account History section on the user edit page
-2. Change username feature
-3. Search results showing users found by previous email/username
+2. Lock/unlock user account from the user edit page
 
 == Changelog ==
 
