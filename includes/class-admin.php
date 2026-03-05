@@ -45,6 +45,7 @@ class WPZOOM_User_History_Admin {
         add_action('wp_ajax_wpzoom_user_history_load_more', [$this, 'ajax_load_more_history']);
         add_action('wp_ajax_wpzoom_user_history_change_username', [$this, 'ajax_change_username']);
         add_action('wp_ajax_wpzoom_user_history_clear', [$this, 'ajax_clear_history']);
+        add_action('wp_ajax_wpzoom_user_history_destroy_sessions', [$this, 'ajax_destroy_sessions']);
 
         // Extend user search to include history
         add_action('pre_user_query', [$this, 'extend_user_search']);
@@ -89,6 +90,7 @@ class WPZOOM_User_History_Admin {
             'nonce'   => wp_create_nonce('wpzoom_user_history_nonce'),
             'changeUsernameNonce' => wp_create_nonce('wpzoom_user_history_change_username'),
             'clearHistoryNonce' => wp_create_nonce('wpzoom_user_history_clear'),
+            'destroySessionsNonce' => wp_create_nonce('wpzoom_user_history_destroy_sessions'),
             'lockNonce' => wp_create_nonce('wpzoom_user_history_lock'),
             'userId'  => $user_id,
             'i18n'    => [
@@ -103,6 +105,9 @@ class WPZOOM_User_History_Admin {
                 'unlockAccount' => __('Unlock Account', 'wpzoom-user-history'),
                 'confirmLock'   => __('Are you sure you want to lock this user? They will be logged out immediately.', 'wpzoom-user-history'),
                 'confirmUnlock' => __('Are you sure you want to unlock this user?', 'wpzoom-user-history'),
+                'confirmDestroySessions' => __('Are you sure you want to log out this user from all sessions?', 'wpzoom-user-history'),
+                'destroyingSessions' => __('Logging out...', 'wpzoom-user-history'),
+                'logOutEverywhere' => __('Log Out Everywhere', 'wpzoom-user-history'),
             ],
         ]);
     }
@@ -126,6 +131,9 @@ class WPZOOM_User_History_Admin {
         $changes_count  = $this->plugin->get_user_history_count($user->ID, 'changes');
         $logins         = $this->plugin->get_user_history($user->ID, 20, 0, 'logins');
         $logins_count   = $this->plugin->get_user_history_count($user->ID, 'logins');
+        $session_manager = WP_Session_Tokens::get_instance($user->ID);
+        $sessions        = $session_manager->get_all();
+        $sessions_count  = count($sessions);
         ?>
         <div class="user-history-section">
             <h2><?php esc_html_e('Account History', 'wpzoom-user-history'); ?></h2>
@@ -141,6 +149,12 @@ class WPZOOM_User_History_Admin {
                     <?php esc_html_e('Logins', 'wpzoom-user-history'); ?>
                     <?php if ($logins_count > 0): ?>
                         <span class="user-history-tab-count"><?php echo esc_html($logins_count); ?></span>
+                    <?php endif; ?>
+                </a>
+                <a href="#" class="user-history-tab" data-tab="sessions">
+                    <?php esc_html_e('Sessions', 'wpzoom-user-history'); ?>
+                    <?php if ($sessions_count > 0): ?>
+                        <span class="user-history-tab-count"><?php echo esc_html($sessions_count); ?></span>
                     <?php endif; ?>
                 </a>
             </div>
@@ -216,6 +230,20 @@ class WPZOOM_User_History_Admin {
                             </button>
                         <?php endif; ?>
                     </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Sessions tab -->
+            <div class="user-history-tab-content" id="user-history-tab-sessions" data-user-id="<?php echo esc_attr($user->ID); ?>">
+                <?php if (empty($sessions)): ?>
+                    <p class="user-history-empty">
+                        <?php esc_html_e('No active sessions.', 'wpzoom-user-history'); ?>
+                    </p>
+                <?php else: ?>
+                    <?php
+                    // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Output is escaped in render_sessions_tab()
+                    echo $this->render_sessions_tab($user, $sessions);
+                    ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -391,6 +419,94 @@ class WPZOOM_User_History_Admin {
     }
 
     /**
+     * Render the sessions tab content.
+     *
+     * @param WP_User $user     The user being viewed.
+     * @param array   $sessions Array of session data from WP_Session_Tokens.
+     * @return string HTML output.
+     */
+    public function render_sessions_tab($user, $sessions) {
+        // Determine the current session token for highlighting
+        $current_token = '';
+        if ($user->ID === get_current_user_id()) {
+            $cookie = wp_parse_auth_cookie('', 'logged_in');
+            if ($cookie && isset($cookie['token'])) {
+                $current_token = $cookie['token'];
+            }
+        }
+
+        $output = '<table class="widefat user-history-table">';
+        $output .= '<thead><tr>';
+        $output .= '<th class="column-date">' . esc_html__('Login Time', 'wpzoom-user-history') . '</th>';
+        $output .= '<th class="column-ip">' . esc_html__('IP Address', 'wpzoom-user-history') . '</th>';
+        $output .= '<th class="column-browser">' . esc_html__('Browser', 'wpzoom-user-history') . '</th>';
+        $output .= '<th class="column-expires">' . esc_html__('Expires', 'wpzoom-user-history') . '</th>';
+        $output .= '</tr></thead><tbody>';
+
+        foreach ($sessions as $verifier => $session) {
+            $is_current = (!empty($current_token) && hash('sha256', $current_token) === $verifier);
+            $is_expired = (isset($session['expiration']) && $session['expiration'] < time());
+            $row_class  = $is_current ? ' session-current' : '';
+
+            $output .= '<tr class="user-history-entry' . $row_class . '">';
+
+            // Login time
+            $output .= '<td class="column-date">';
+            if (!empty($session['login'])) {
+                $output .= '<span class="history-date">' . esc_html(date_i18n(get_option('date_format'), $session['login'])) . '</span>';
+                $output .= '<span class="history-time">' . esc_html(date_i18n(get_option('time_format'), $session['login'])) . '</span>';
+            } else {
+                $output .= '&mdash;';
+            }
+            if ($is_current) {
+                $output .= ' <span class="session-current-badge">' . esc_html__('(current)', 'wpzoom-user-history') . '</span>';
+            }
+            $output .= '</td>';
+
+            // IP Address
+            $output .= '<td class="column-ip">';
+            if (!empty($session['ip'])) {
+                $output .= '<a href="https://ipinfo.io/' . esc_attr($session['ip']) . '" target="_blank" rel="noopener noreferrer">' . esc_html($session['ip']) . '</a>';
+            } else {
+                $output .= '&mdash;';
+            }
+            $output .= '</td>';
+
+            // Browser
+            $output .= '<td class="column-browser">';
+            if (!empty($session['ua'])) {
+                $output .= esc_html($this->parse_user_agent($session['ua']));
+            } else {
+                $output .= '&mdash;';
+            }
+            $output .= '</td>';
+
+            // Expires
+            $output .= '<td class="column-expires">';
+            if ($is_expired) {
+                $output .= '<span class="session-expired-badge">' . esc_html__('Expired', 'wpzoom-user-history') . '</span>';
+            } elseif (!empty($session['expiration'])) {
+                $output .= esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $session['expiration']));
+            } else {
+                $output .= '&mdash;';
+            }
+            $output .= '</td>';
+
+            $output .= '</tr>';
+        }
+
+        $output .= '</tbody></table>';
+
+        $output .= '<div class="user-history-actions">';
+        $output .= '<button type="button" class="button user-history-destroy-sessions" id="user-history-destroy-sessions">';
+        $output .= esc_html__('Log Out Everywhere', 'wpzoom-user-history');
+        $output .= '</button>';
+        $output .= '</div>';
+
+        return $output;
+    }
+
+    /**
      * Parse user agent string to extract browser and OS.
      *
      * @param string $ua User agent string.
@@ -516,6 +632,30 @@ class WPZOOM_User_History_Admin {
 
         wp_send_json_success([
             'message' => __('History cleared successfully', 'wpzoom-user-history'),
+        ]);
+    }
+
+    /**
+     * AJAX handler for destroying all user sessions.
+     */
+    public function ajax_destroy_sessions() {
+        check_ajax_referer('wpzoom_user_history_destroy_sessions', 'nonce');
+
+        if (!current_user_can('edit_users')) {
+            wp_send_json_error(['message' => __('Unauthorized', 'wpzoom-user-history')]);
+        }
+
+        $user_id = isset($_POST['user_id']) ? (int) $_POST['user_id'] : 0;
+
+        if (!$user_id) {
+            wp_send_json_error(['message' => __('Invalid user ID', 'wpzoom-user-history')]);
+        }
+
+        $sessions = WP_Session_Tokens::get_instance($user_id);
+        $sessions->destroy_all();
+
+        wp_send_json_success([
+            'message' => __('All sessions have been destroyed.', 'wpzoom-user-history'),
         ]);
     }
 

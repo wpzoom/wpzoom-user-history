@@ -9,6 +9,7 @@
         initLoadMore();
         initChangeUsername();
         initClearHistory();
+        initDestroySessions();
         initLockToggle();
     });
 
@@ -293,6 +294,58 @@
                 error: function() {
                     alert(i18n.errorGeneric || 'Something went wrong.');
                     $btn.removeClass('loading').prop('disabled', false).text(i18n.clearLog || 'Clear Log');
+                }
+            });
+        });
+    }
+
+    /**
+     * Initialize destroy sessions functionality
+     */
+    function initDestroySessions() {
+        var $btn = $('#user-history-destroy-sessions');
+
+        if (!$btn.length) {
+            return;
+        }
+
+        var i18n = wpzoom_user_history_data.i18n || {};
+
+        $btn.on('click', function(e) {
+            e.preventDefault();
+
+            if (!confirm(i18n.confirmDestroySessions || 'Are you sure you want to log out this user from all sessions?')) {
+                return;
+            }
+
+            if ($btn.hasClass('loading')) {
+                return;
+            }
+
+            $btn.addClass('loading').prop('disabled', true).text(i18n.destroyingSessions || 'Logging out...');
+
+            $.ajax({
+                url: wpzoom_user_history_data.ajaxUrl,
+                type: 'POST',
+                data: {
+                    action: 'wpzoom_user_history_destroy_sessions',
+                    nonce: wpzoom_user_history_data.destroySessionsNonce,
+                    user_id: wpzoom_user_history_data.userId
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $('#user-history-tab-sessions').html('<p class="user-history-empty">No active sessions.</p>');
+
+                        // Update sessions tab count
+                        $('.user-history-tab[data-tab="sessions"] .user-history-tab-count').remove();
+                    } else {
+                        alert(response.data.message || i18n.errorGeneric);
+                        $btn.removeClass('loading').prop('disabled', false).text(i18n.logOutEverywhere || 'Log Out Everywhere');
+                    }
+                },
+                error: function() {
+                    alert(i18n.errorGeneric || 'Something went wrong.');
+                    $btn.removeClass('loading').prop('disabled', false).text(i18n.logOutEverywhere || 'Log Out Everywhere');
                 }
             });
         });
