@@ -32,11 +32,9 @@ class WPZOOM_User_History_Admin {
     public function __construct($plugin) {
         $this->plugin = $plugin;
 
-        // Admin UI hooks
+        // Admin UI hooks — single consolidated panel renders the entire plugin UI
         add_action('edit_user_profile', [$this, 'display_history_section'], 99);
         add_action('show_user_profile', [$this, 'display_history_section'], 99);
-        add_action('edit_user_profile', [$this, 'display_delete_user_button'], 100);
-        add_action('show_user_profile', [$this, 'display_delete_user_button'], 100);
 
         // Enqueue admin styles and scripts
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
@@ -134,9 +132,24 @@ class WPZOOM_User_History_Admin {
         $session_manager = WP_Session_Tokens::get_instance($user->ID);
         $sessions        = $session_manager->get_all();
         $sessions_count  = count($sessions);
+
+        // Determine which actions are available so we can decide whether to show the Actions tab
+        $can_show_lock   = $this->can_show_lock_action($user);
+        $can_show_delete = $this->can_show_delete_action($user);
+        $show_actions    = $can_show_lock || $can_show_delete;
+        $is_locked       = $can_show_lock ? $this->plugin->lock->is_user_locked($user->ID) : false;
         ?>
-        <div class="user-history-section">
-            <h2><?php esc_html_e('Account History', 'wpzoom-user-history'); ?></h2>
+        <div class="user-history-section user-history-panel">
+            <div class="user-history-panel-header">
+                <h2><?php esc_html_e('Account Management', 'wpzoom-user-history'); ?></h2>
+                <?php if ($can_show_lock): ?>
+                    <span class="user-history-panel-status user-history-lock-badge <?php echo $is_locked ? 'locked' : 'active'; ?>">
+                        <?php echo $is_locked
+                            ? esc_html__('Locked', 'wpzoom-user-history')
+                            : esc_html__('Active', 'wpzoom-user-history'); ?>
+                    </span>
+                <?php endif; ?>
+            </div>
 
             <div class="user-history-tabs">
                 <a href="#" class="user-history-tab active" data-tab="changes">
@@ -157,6 +170,11 @@ class WPZOOM_User_History_Admin {
                         <span class="user-history-tab-count"><?php echo esc_html($sessions_count); ?></span>
                     <?php endif; ?>
                 </a>
+                <?php if ($show_actions): ?>
+                    <a href="#" class="user-history-tab user-history-tab-actions" data-tab="actions">
+                        <?php esc_html_e('Actions', 'wpzoom-user-history'); ?>
+                    </a>
+                <?php endif; ?>
             </div>
 
             <!-- Changes tab -->
@@ -250,52 +268,90 @@ class WPZOOM_User_History_Admin {
                     ?>
                 <?php endif; ?>
             </div>
+
+            <?php if ($show_actions): ?>
+            <!-- Actions tab -->
+            <div class="user-history-tab-content" id="user-history-tab-actions" data-user-id="<?php echo esc_attr($user->ID); ?>">
+                <?php if ($can_show_lock): ?>
+                    <div class="user-history-action-block">
+                        <h3><?php esc_html_e('Account Status', 'wpzoom-user-history'); ?></h3>
+                        <p class="description">
+                            <?php esc_html_e('Lock this account to prevent the user from logging in. All active sessions will be ended immediately.', 'wpzoom-user-history'); ?>
+                        </p>
+                        <p>
+                            <button type="button" class="button <?php echo $is_locked ? '' : 'button-link-delete'; ?>" id="user-history-lock-toggle"
+                                    data-user-id="<?php echo esc_attr($user->ID); ?>"
+                                    data-locked="<?php echo $is_locked ? 'yes' : 'no'; ?>">
+                                <?php echo $is_locked
+                                    ? esc_html__('Unlock Account', 'wpzoom-user-history')
+                                    : esc_html__('Lock Account', 'wpzoom-user-history'); ?>
+                            </button>
+                            <span class="user-history-lock-message"></span>
+                        </p>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($can_show_delete): ?>
+                    <?php
+                    $delete_url = wp_nonce_url(
+                        admin_url('users.php?action=delete&user=' . $user->ID),
+                        'bulk-users'
+                    );
+                    ?>
+                    <div class="user-history-action-block user-history-action-danger">
+                        <h3><?php esc_html_e('Delete Account', 'wpzoom-user-history'); ?></h3>
+                        <p class="description">
+                            <?php esc_html_e('Permanently delete this user account. You will be able to reassign their content to another user.', 'wpzoom-user-history'); ?>
+                        </p>
+                        <p>
+                            <a href="<?php echo esc_url($delete_url); ?>" class="button button-link-delete">
+                                <?php esc_html_e('Delete User', 'wpzoom-user-history'); ?>
+                            </a>
+                        </p>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
         </div>
         <?php
     }
 
-    // =========================================================================
-    // User Edit Page — Delete Button
-    // =========================================================================
+    /**
+     * Whether the Lock action should be shown for this user.
+     *
+     * @param WP_User $user The user being viewed.
+     * @return bool
+     */
+    private function can_show_lock_action($user) {
+        if (!current_user_can('edit_users')) {
+            return false;
+        }
+        if ($user->ID === get_current_user_id()) {
+            return false;
+        }
+        if (is_multisite() && is_super_admin($user->ID)) {
+            return false;
+        }
+        return isset($this->plugin->lock);
+    }
 
     /**
-     * Display delete user button on user edit page.
+     * Whether the Delete action should be shown for this user.
      *
-     * @param WP_User $user The user being edited.
+     * @param WP_User $user The user being viewed.
+     * @return bool
      */
-    public function display_delete_user_button($user) {
-        // Only show to users who can delete users
+    private function can_show_delete_action($user) {
         if (!current_user_can('delete_users')) {
-            return;
+            return false;
         }
-
-        // Don't allow deleting yourself
         if ($user->ID === get_current_user_id()) {
-            return;
+            return false;
         }
-
-        // Don't show for super admins on multisite (they can't be deleted this way)
         if (is_multisite() && is_super_admin($user->ID)) {
-            return;
+            return false;
         }
-
-        $delete_url = wp_nonce_url(
-            admin_url('users.php?action=delete&user=' . $user->ID),
-            'bulk-users'
-        );
-        ?>
-        <div class="user-history-section user-history-delete-section">
-            <h2><?php esc_html_e('Delete User', 'wpzoom-user-history'); ?></h2>
-            <p class="description">
-                <?php esc_html_e('Permanently delete this user account. You will be able to reassign their content to another user.', 'wpzoom-user-history'); ?>
-            </p>
-            <p>
-                <a href="<?php echo esc_url($delete_url); ?>" class="button button-link-delete">
-                    <?php esc_html_e('Delete User', 'wpzoom-user-history'); ?>
-                </a>
-            </p>
-        </div>
-        <?php
+        return true;
     }
 
     // =========================================================================

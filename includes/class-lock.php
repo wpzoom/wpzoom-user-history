@@ -37,9 +37,7 @@ class WPZOOM_User_History_Lock {
         add_action('wp_authenticate_application_password_errors', [$this, 'block_locked_user_app_password'], 10, 2);
         add_filter('determine_current_user', [$this, 'block_locked_user_session'], 9999);
 
-        // User edit page UI
-        add_action('edit_user_profile', [$this, 'display_lock_user_section'], 98);
-        add_action('show_user_profile', [$this, 'display_lock_user_section'], 98);
+        // (User edit page lock UI is rendered inside the consolidated panel by class-admin.php)
 
         // AJAX handler
         add_action('wp_ajax_wpzoom_user_history_toggle_lock', [$this, 'ajax_toggle_lock']);
@@ -249,58 +247,6 @@ class WPZOOM_User_History_Lock {
                 : __('Account unlocked.', 'wpzoom-user-history'),
             'isLocked' => $is_locked,
         ]);
-    }
-
-    // =========================================================================
-    // User Edit Page UI
-    // =========================================================================
-
-    /**
-     * Display lock/unlock section on user edit page.
-     *
-     * @param WP_User $user The user being edited.
-     */
-    public function display_lock_user_section($user) {
-        if (!current_user_can('edit_users')) {
-            return;
-        }
-
-        // Don't show on own profile
-        if ($user->ID === get_current_user_id()) {
-            return;
-        }
-
-        // Don't show for super admins on multisite
-        if (is_multisite() && is_super_admin($user->ID)) {
-            return;
-        }
-
-        $is_locked = $this->is_user_locked($user->ID);
-        ?>
-        <div class="user-history-section user-history-lock-section">
-            <h2><?php esc_html_e('Account Status', 'wpzoom-user-history'); ?></h2>
-            <p class="description">
-                <?php esc_html_e('Lock this account to prevent the user from logging in.', 'wpzoom-user-history'); ?>
-            </p>
-            <p class="user-history-lock-status">
-                <?php if ($is_locked): ?>
-                    <span class="user-history-lock-badge locked"><?php esc_html_e('Locked', 'wpzoom-user-history'); ?></span>
-                <?php else: ?>
-                    <span class="user-history-lock-badge active"><?php esc_html_e('Active', 'wpzoom-user-history'); ?></span>
-                <?php endif; ?>
-            </p>
-            <p>
-                <button type="button" class="button <?php echo $is_locked ? '' : 'button-link-delete'; ?>" id="user-history-lock-toggle"
-                        data-user-id="<?php echo esc_attr($user->ID); ?>"
-                        data-locked="<?php echo $is_locked ? 'yes' : 'no'; ?>">
-                    <?php echo $is_locked
-                        ? esc_html__('Unlock Account', 'wpzoom-user-history')
-                        : esc_html__('Lock Account', 'wpzoom-user-history'); ?>
-                </button>
-                <span class="user-history-lock-message"></span>
-            </p>
-        </div>
-        <?php
     }
 
     // =========================================================================

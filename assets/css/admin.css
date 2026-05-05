@@ -28,6 +28,105 @@
 }
 
 /* ==========================================================================
+   Consolidated Panel (single distinctive card containing all plugin UI)
+   ========================================================================== */
+
+.user-history-panel {
+    margin-top: 40px;
+    padding: 0;
+    border: 1px solid #c3c4c7;
+    border-top: 3px solid #2271b1;
+    border-radius: 4px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+}
+
+.user-history-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 20px;
+    background: #f6f7f7;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 15px;
+}
+
+.user-history-panel-header h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.user-history-panel-status {
+    flex-shrink: 0;
+}
+
+.user-history-panel .user-history-tabs {
+    padding: 0 20px;
+    margin-top: 0;
+    background: #fff;
+}
+
+.user-history-panel .user-history-tab-content {
+    padding: 20px;
+}
+
+/* "Actions" tab styled to draw attention */
+.user-history-tab.user-history-tab-actions {
+    margin-left: auto;
+    color: #b32d2e;
+}
+
+.user-history-tab.user-history-tab-actions:hover {
+    color: #8a1f1f;
+}
+
+.user-history-tab.user-history-tab-actions.active {
+    color: #b32d2e;
+}
+
+/* Action blocks inside the Actions tab */
+.user-history-action-block {
+    padding: 16px 18px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    background: #fafafa;
+    margin-bottom: 16px;
+}
+
+.user-history-action-block:last-child {
+    margin-bottom: 0;
+}
+
+.user-history-action-block h3 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.user-history-action-block .description {
+    margin: 0 0 12px;
+    color: #646970;
+}
+
+.user-history-action-block p:last-child {
+    margin-bottom: 0;
+}
+
+.user-history-action-danger {
+    border-color: #f0c0c0;
+    background: #fef7f7;
+}
+
+.user-history-action-danger h3 {
+    color: #b32d2e;
+}
+
+/* ==========================================================================
    Tabs
    ========================================================================== */
 
@@ -103,8 +202,8 @@
 /* Registration details panel (shown above Changes table for users with captured context) */
 .user-history-registration-panel {
     background: #f6f7f7;
-    border: 1px solid #c3c4c7;
-    border-top: none;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
     padding: 14px 18px;
     margin-bottom: 20px;
 }
@@ -379,15 +478,15 @@
     color: #787c82;
 }
 
-/* Lock section on user edit page */
-.user-history-lock-section .button-link-delete {
+/* Lock + Delete buttons inside the Actions tab */
+.user-history-action-block .button-link-delete {
     color: #b32d2e;
     border-color: #b32d2e;
     background: #fff;
 }
 
-.user-history-lock-section .button-link-delete:hover,
-.user-history-lock-section .button-link-delete:focus {
+.user-history-action-block .button-link-delete:hover,
+.user-history-action-block .button-link-delete:focus {
     color: #fff;
     background: #b32d2e;
     border-color: #b32d2e;
@@ -512,25 +611,3 @@
     width: 80px;
 }
 
-/* ==========================================================================
-   Delete User Section
-   ========================================================================== */
-
-.user-history-delete-section {
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px solid #c3c4c7;
-}
-
-.user-history-delete-section .button-link-delete {
-    color: #b32d2e;
-    border-color: #b32d2e;
-    background: #fff;
-}
-
-.user-history-delete-section .button-link-delete:hover,
-.user-history-delete-section .button-link-delete:focus {
-    color: #fff;
-    background: #b32d2e;
-    border-color: #b32d2e;
-}
