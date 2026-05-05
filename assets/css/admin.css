@@ -100,6 +100,79 @@
     color: #666;
 }
 
+/* Registration details panel (shown above Changes table for users with captured context) */
+.user-history-registration-panel {
+    background: #f6f7f7;
+    border: 1px solid #c3c4c7;
+    border-top: none;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+}
+
+.user-history-registration-panel h3 {
+    margin: 0 0 10px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #50575e;
+}
+
+.user-history-registration-info {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 6px 16px;
+    margin: 0;
+    font-size: 13px;
+}
+
+.user-history-registration-info dt {
+    color: #646970;
+    font-weight: 500;
+    margin: 0;
+}
+
+.user-history-registration-info dd {
+    margin: 0;
+    color: #1d2327;
+    word-break: break-word;
+}
+
+.user-history-registration-info dd a {
+    text-decoration: none;
+}
+
+.user-history-registration-info dd a:hover {
+    text-decoration: underline;
+}
+
+.user-history-referrer-host {
+    color: #646970;
+    font-size: 12px;
+}
+
+.user-history-ua-full {
+    color: #646970;
+    font-size: 12px;
+    cursor: help;
+    border-bottom: 1px dotted #a7aaad;
+}
+
+@media screen and (max-width: 782px) {
+    .user-history-registration-info {
+        grid-template-columns: 1fr;
+        gap: 2px 0;
+    }
+
+    .user-history-registration-info dt {
+        margin-top: 8px;
+    }
+
+    .user-history-registration-info dt:first-child {
+        margin-top: 0;
+    }
+}
+
 /* History table */
 .user-history-table {
     margin-top: -1px;

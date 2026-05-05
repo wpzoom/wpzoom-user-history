@@ -161,6 +161,10 @@ class WPZOOM_User_History_Admin {
 
             <!-- Changes tab -->
             <div class="user-history-tab-content active" id="user-history-tab-changes" data-user-id="<?php echo esc_attr($user->ID); ?>">
+                <?php
+                // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Output is escaped in render_registration_panel()
+                echo $this->render_registration_panel($user);
+                ?>
                 <?php if (empty($changes)): ?>
                     <p class="user-history-empty">
                         <?php esc_html_e('No changes have been recorded yet.', 'wpzoom-user-history'); ?>
@@ -297,6 +301,66 @@ class WPZOOM_User_History_Admin {
     // =========================================================================
     // History Rendering
     // =========================================================================
+
+    /**
+     * Render the "Registration Details" panel shown above the Changes table.
+     * Returns empty string if no registration context was captured.
+     *
+     * @param WP_User $user The user being viewed.
+     * @return string HTML output.
+     */
+    private function render_registration_panel($user) {
+        $data = get_user_meta($user->ID, WPZOOM_User_History::REGISTRATION_META_KEY, true);
+        if (!is_array($data)) {
+            return '';
+        }
+
+        $referrer   = !empty($data['referrer']) ? $data['referrer'] : '';
+        $source_url = !empty($data['source_url']) ? $data['source_url'] : '';
+        $user_agent = !empty($data['user_agent']) ? $data['user_agent'] : '';
+
+        if (!$referrer && !$source_url && !$user_agent) {
+            return '';
+        }
+
+        $registered_ts = !empty($user->user_registered) ? strtotime($user->user_registered . ' UTC') : 0;
+
+        $output  = '<div class="user-history-registration-panel">';
+        $output .= '<h3>' . esc_html__('Registration Details', 'wpzoom-user-history') . '</h3>';
+        $output .= '<dl class="user-history-registration-info">';
+
+        if ($registered_ts) {
+            $output .= '<dt>' . esc_html__('Registered', 'wpzoom-user-history') . '</dt>';
+            $output .= '<dd>' . esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), $registered_ts)) . '</dd>';
+        }
+
+        if ($source_url) {
+            $output .= '<dt>' . esc_html__('Registered On Page', 'wpzoom-user-history') . '</dt>';
+            $output .= '<dd><a href="' . esc_url($source_url) . '" target="_blank" rel="noopener noreferrer">' . esc_html($source_url) . '</a></dd>';
+        }
+
+        if ($referrer) {
+            $referrer_host = wp_parse_url($referrer, PHP_URL_HOST);
+            $output .= '<dt>' . esc_html__('Referrer', 'wpzoom-user-history') . '</dt>';
+            $output .= '<dd><a href="' . esc_url($referrer) . '" target="_blank" rel="noopener noreferrer">' . esc_html($referrer) . '</a>';
+            if ($referrer_host) {
+                $output .= ' <span class="user-history-referrer-host">(' . esc_html($referrer_host) . ')</span>';
+            }
+            $output .= '</dd>';
+        }
+
+        if ($user_agent) {
+            $output .= '<dt>' . esc_html__('Browser', 'wpzoom-user-history') . '</dt>';
+            $output .= '<dd>' . esc_html($this->parse_user_agent($user_agent));
+            $output .= ' <span class="user-history-ua-full" title="' . esc_attr($user_agent) . '">' . esc_html__('(details on hover)', 'wpzoom-user-history') . '</span>';
+            $output .= '</dd>';
+        }
+
+        $output .= '</dl>';
+        $output .= '</div>';
+
+        return $output;
+    }
 
     /**
      * Render history table rows.

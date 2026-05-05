@@ -402,5 +402,50 @@ class WPZOOM_User_History_Tracker {
             $user->user_email,
             'create'
         );
+
+        $this->capture_registration_context($user_id);
+    }
+
+    /**
+     * Capture the request context at registration time (referrer, source URL, user agent)
+     * and store as user meta. Stored as a one-time snapshot — never overwritten.
+     *
+     * @param int $user_id User ID.
+     */
+    private function capture_registration_context($user_id) {
+        if (get_user_meta($user_id, WPZOOM_User_History::REGISTRATION_META_KEY, true)) {
+            return;
+        }
+
+        $data = [
+            'referrer'   => '',
+            'source_url' => '',
+            'user_agent' => '',
+        ];
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- Reading server-set headers, not user-submitted form data
+        if (!empty($_SERVER['HTTP_REFERER'])) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- esc_url_raw sanitizes
+            $data['referrer'] = esc_url_raw(wp_unslash($_SERVER['HTTP_REFERER']));
+        }
+
+        if (!empty($_SERVER['REQUEST_URI'])) {
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- esc_url_raw sanitizes
+            $request_uri = esc_url_raw(wp_unslash($_SERVER['REQUEST_URI']));
+            $host        = !empty($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_HOST'])) : '';
+            if ($host) {
+                $data['source_url'] = (is_ssl() ? 'https://' : 'http://') . $host . $request_uri;
+            } else {
+                $data['source_url'] = $request_uri;
+            }
+        }
+
+        if (!empty($_SERVER['HTTP_USER_AGENT'])) {
+            $data['user_agent'] = sanitize_text_field(wp_unslash($_SERVER['HTTP_USER_AGENT']));
+        }
+
+        if ($data['referrer'] || $data['source_url'] || $data['user_agent']) {
+            update_user_meta($user_id, WPZOOM_User_History::REGISTRATION_META_KEY, $data);
+        }
     }
 }

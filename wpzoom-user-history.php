@@ -39,6 +39,11 @@ class WPZOOM_User_History {
     const LOCKED_META_KEY = 'wpzoom_user_history_locked';
 
     /**
+     * User meta key for registration context (referrer, source URL, user agent).
+     */
+    const REGISTRATION_META_KEY = 'wpzoom_user_history_registration';
+
+    /**
      * Singleton instance.
      *
      * @var WPZOOM_User_History
