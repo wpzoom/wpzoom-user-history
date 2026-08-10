@@ -14,6 +14,16 @@
     });
 
     /**
+     * Build an empty-state paragraph
+     *
+     * @param {string} text Message to display.
+     * @return {jQuery} The paragraph element.
+     */
+    function emptyMessage(text) {
+        return $('<p>', { 'class': 'user-history-empty', text: text });
+    }
+
+    /**
      * Initialize tab switching
      */
     function initTabs() {
@@ -43,6 +53,8 @@
      * Initialize load more functionality
      */
     function initLoadMore() {
+        var i18n = wpzoom_user_history_data.i18n || {};
+
         $(document).on('click', '.user-history-load-more', function(e) {
             e.preventDefault();
 
@@ -55,7 +67,7 @@
                 return;
             }
 
-            $btn.addClass('loading').text('Loading...');
+            $btn.addClass('loading').text(i18n.loading || 'Loading...');
 
             $.ajax({
                 url: wpzoom_user_history_data.ajaxUrl,
@@ -73,7 +85,7 @@
 
                         if (response.data.hasMore) {
                             $btn.data('offset', response.data.newOffset);
-                            $btn.removeClass('loading').text('Load More');
+                            $btn.removeClass('loading').text(i18n.loadMore || 'Load More');
                         } else {
                             $btn.remove();
                         }
@@ -82,7 +94,7 @@
                     }
                 },
                 error: function() {
-                    $btn.removeClass('loading').text('Error - Try Again');
+                    $btn.removeClass('loading').text(i18n.errorTryAgain || 'Error - Try Again');
                 }
             });
         });
@@ -281,8 +293,12 @@
                 success: function(response) {
                     if (response.success) {
                         // Replace both tab contents with empty messages
-                        $('#user-history-tab-changes').html('<p class="user-history-empty">No changes have been recorded yet.</p>');
-                        $('#user-history-tab-logins').html('<p class="user-history-empty">No login events have been recorded yet.</p>');
+                        $('#user-history-tab-changes').html(
+                            emptyMessage(i18n.noChanges || 'No changes have been recorded yet.')
+                        );
+                        $('#user-history-tab-logins').html(
+                            emptyMessage(i18n.noLogins || 'No login events have been recorded yet.')
+                        );
 
                         // Update the tab counts
                         $('.user-history-tab-count').remove();
@@ -334,7 +350,9 @@
                 },
                 success: function(response) {
                     if (response.success) {
-                        $('#user-history-tab-sessions').html('<p class="user-history-empty">No active sessions.</p>');
+                        $('#user-history-tab-sessions').html(
+                            emptyMessage(i18n.noSessions || 'No active sessions.')
+                        );
 
                         // Update sessions tab count
                         $('.user-history-tab[data-tab="sessions"] .user-history-tab-count').remove();

@@ -25,6 +25,10 @@ class WPZOOM_User_History_Tracker {
     /**
      * Fields to track in wp_users table.
      *
+     * Labels are intentionally stored untranslated so log entries stay
+     * language-neutral; they are translated for display by
+     * WPZOOM_User_History::translate_field_label().
+     *
      * @var array
      */
     private $tracked_fields = [
@@ -38,6 +42,8 @@ class WPZOOM_User_History_Tracker {
 
     /**
      * User meta fields to track (capabilities key is added dynamically in constructor).
+     *
+     * Labels are stored untranslated — see $tracked_fields.
      *
      * @var array
      */

@@ -12,6 +12,10 @@ if (!defined('ABSPATH')) {
 
 /**
  * Handles tracking of login, logout, and failed login events.
+ *
+ * Event labels ('Login', 'Logout', 'Failed Login') are stored untranslated so
+ * log entries stay language-neutral; they are translated for display by
+ * WPZOOM_User_History::translate_field_label().
  */
 class WPZOOM_User_History_Login_Tracker {
 

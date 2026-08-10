@@ -355,6 +355,49 @@ class WPZOOM_User_History {
     }
 
     /**
+     * Translate a field label for display.
+     *
+     * Labels are stored in the database in English so that logs stay
+     * language-neutral (and readable if the site language changes later).
+     * Translation happens here, at display time. Unknown labels — including
+     * ones added by third-party code — are returned unchanged.
+     *
+     * @param string $label Stored (English) label.
+     * @return string Translated label.
+     */
+    public static function translate_field_label($label) {
+        $labels = [
+            'Username'          => __('Username', 'wpzoom-user-history'),
+            'Email'             => __('Email', 'wpzoom-user-history'),
+            'Password'          => __('Password', 'wpzoom-user-history'),
+            'Nicename'          => __('Nicename', 'wpzoom-user-history'),
+            'Display Name'      => __('Display Name', 'wpzoom-user-history'),
+            'Website'           => __('Website', 'wpzoom-user-history'),
+            'First Name'        => __('First Name', 'wpzoom-user-history'),
+            'Last Name'         => __('Last Name', 'wpzoom-user-history'),
+            'Nickname'          => __('Nickname', 'wpzoom-user-history'),
+            'Biographical Info' => __('Biographical Info', 'wpzoom-user-history'),
+            'Role'              => __('Role', 'wpzoom-user-history'),
+            'Account Created'   => __('Account Created', 'wpzoom-user-history'),
+            'Account Locked'    => __('Account Locked', 'wpzoom-user-history'),
+            'Account Unlocked'  => __('Account Unlocked', 'wpzoom-user-history'),
+            'Login'             => __('Login', 'wpzoom-user-history'),
+            'Logout'            => __('Logout', 'wpzoom-user-history'),
+            'Failed Login'      => __('Failed Login', 'wpzoom-user-history'),
+        ];
+
+        /**
+         * Filters the map of stored field labels to their translated versions.
+         *
+         * @param array  $labels Map of stored (English) label => translated label.
+         * @param string $label  The label being translated.
+         */
+        $labels = apply_filters('wpzoom_user_history_field_labels', $labels, $label);
+
+        return isset($labels[ $label ]) ? $labels[ $label ] : $label;
+    }
+
+    /**
      * Get the client IP address.
      *
      * @return string IP address or empty string.

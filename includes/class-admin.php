@@ -106,6 +106,14 @@ class WPZOOM_User_History_Admin {
                 'confirmDestroySessions' => __('Are you sure you want to log out this user from all sessions?', 'wpzoom-user-history'),
                 'destroyingSessions' => __('Logging out...', 'wpzoom-user-history'),
                 'logOutEverywhere' => __('Log Out Everywhere', 'wpzoom-user-history'),
+                'locked'        => __('Locked', 'wpzoom-user-history'),
+                'active'        => __('Active', 'wpzoom-user-history'),
+                'loading'       => __('Loading...', 'wpzoom-user-history'),
+                'loadMore'      => __('Load More', 'wpzoom-user-history'),
+                'errorTryAgain' => __('Error - Try Again', 'wpzoom-user-history'),
+                'noChanges'     => __('No changes have been recorded yet.', 'wpzoom-user-history'),
+                'noLogins'      => __('No login events have been recorded yet.', 'wpzoom-user-history'),
+                'noSessions'    => __('No active sessions.', 'wpzoom-user-history'),
             ],
         ]);
     }
@@ -432,7 +440,8 @@ class WPZOOM_User_History_Admin {
             $changed_by_name = $changed_by_user ? $changed_by_user->display_name : __('Unknown', 'wpzoom-user-history');
             $changed_by_link = $changed_by_user ? get_edit_user_link($entry->changed_by) : '#';
 
-            $is_self = ($entry->user_id == $entry->changed_by);
+            $is_self     = ($entry->user_id == $entry->changed_by);
+            $field_label = WPZOOM_User_History::translate_field_label($entry->field_label);
 
             $output .= '<tr class="user-history-entry type-' . esc_attr($entry->change_type) . '">';
 
@@ -444,7 +453,7 @@ class WPZOOM_User_History_Admin {
 
             // Field column
             $output .= '<td class="column-field">';
-            $output .= '<strong>' . esc_html($entry->field_label) . '</strong>';
+            $output .= '<strong>' . esc_html($field_label) . '</strong>';
             $output .= '</td>';
 
             // Change column
@@ -452,7 +461,7 @@ class WPZOOM_User_History_Admin {
             if ($entry->change_type === 'create') {
                 $output .= '<span class="history-new-value">' . esc_html($entry->new_value) . '</span>';
             } elseif ($entry->field_name === 'account_locked') {
-                $output .= '<span class="history-new-value">' . esc_html($entry->field_label) . '</span>';
+                $output .= '<span class="history-new-value">' . esc_html($field_label) . '</span>';
             } elseif ($entry->field_name === 'user_pass') {
                 // Password changes just show "Changed" - no values ever stored
                 $output .= '<span class="history-new-value">' . esc_html__('Changed', 'wpzoom-user-history') . '</span>';
@@ -511,7 +520,7 @@ class WPZOOM_User_History_Admin {
 
             // Event column
             $output .= '<td class="column-event">';
-            $output .= '<span class="history-event-label event-' . esc_attr($entry->change_type) . '">' . esc_html($entry->field_label) . '</span>';
+            $output .= '<span class="history-event-label event-' . esc_attr($entry->change_type) . '">' . esc_html(WPZOOM_User_History::translate_field_label($entry->field_label)) . '</span>';
             $output .= '</td>';
 
             // IP column
