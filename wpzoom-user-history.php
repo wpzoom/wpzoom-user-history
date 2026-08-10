@@ -3,7 +3,7 @@
  * Plugin Name: WPZOOM User History
  * Plugin URI: https://github.com/wpzoom/user-history
  * Description: Tracks changes made to user accounts (name, email, username, etc.) and displays a history log on the user edit page.
- * Version: 1.2.1
+ * Version: 1.3.0
  * Author: WPZOOM
  * Author URI: https://www.wpzoom.com
  * License: GPL v2 or later
@@ -84,6 +84,13 @@ class WPZOOM_User_History {
      * @var WPZOOM_User_History_Login_Tracker
      */
     public $login_tracker;
+
+    /**
+     * Dashboard access restriction instance.
+     *
+     * @var WPZOOM_User_History_Dashboard_Access
+     */
+    public $dashboard_access;
 
     /**
      * Get singleton instance.
@@ -201,13 +208,15 @@ class WPZOOM_User_History {
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-admin.php';
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-settings.php';
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-login-tracker.php';
+        require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-dashboard-access.php';
 
         // Create feature instances (each registers its own hooks in constructor)
-        $this->tracker       = new WPZOOM_User_History_Tracker($this);
-        $this->lock          = new WPZOOM_User_History_Lock($this);
-        $this->admin         = new WPZOOM_User_History_Admin($this);
-        $this->settings      = new WPZOOM_User_History_Settings();
-        $this->login_tracker = new WPZOOM_User_History_Login_Tracker($this);
+        $this->tracker          = new WPZOOM_User_History_Tracker($this);
+        $this->lock             = new WPZOOM_User_History_Lock($this);
+        $this->admin            = new WPZOOM_User_History_Admin($this);
+        $this->settings         = new WPZOOM_User_History_Settings();
+        $this->login_tracker    = new WPZOOM_User_History_Login_Tracker($this);
+        $this->dashboard_access = new WPZOOM_User_History_Dashboard_Access();
     }
 
     /**
@@ -219,7 +228,59 @@ class WPZOOM_User_History {
         if (version_compare($current_version, WPZOOM_USER_HISTORY_VERSION, '<')) {
             $this->create_table();
             $this->maybe_migrate_lock_data();
+            $this->maybe_migrate_rda_settings();
             update_option('wpzoom_user_history_version', WPZOOM_USER_HISTORY_VERSION);
+        }
+    }
+
+    /**
+     * Migrate settings from the Remove Dashboard Access plugin (rda_* options).
+     *
+     * The restriction is auto-enabled only when the old plugin is currently
+     * active (so it stays seamless when replacing it with this plugin). If the
+     * old plugin was deactivated long ago, the values are migrated but the
+     * feature stays off — turning it on unexpectedly could lock users out.
+     */
+    private function maybe_migrate_rda_settings() {
+        if (get_option('wpzoom_user_history_migrated_rda')) {
+            return;
+        }
+
+        update_option('wpzoom_user_history_migrated_rda', '1');
+
+        if (get_option('rda_access_switch') === false) {
+            return;
+        }
+
+        $map = [
+            'rda_access_switch' => 'wpzoom_user_history_dashboard_access_switch',
+            'rda_access_cap'    => 'wpzoom_user_history_dashboard_access_cap',
+            'rda_redirect_url'  => 'wpzoom_user_history_dashboard_redirect_url',
+            'rda_login_message' => 'wpzoom_user_history_dashboard_login_message',
+            'rda_url_allowlist' => 'wpzoom_user_history_dashboard_url_allowlist',
+        ];
+
+        foreach ($map as $old_key => $new_key) {
+            $value = get_option($old_key);
+            if ($value !== false && get_option($new_key) === false) {
+                update_option($new_key, $value);
+            }
+        }
+
+        // Checkbox options are stored as '1'/'0' strings in this plugin
+        if (get_option('wpzoom_user_history_dashboard_enable_profile') === false) {
+            update_option('wpzoom_user_history_dashboard_enable_profile', get_option('rda_enable_profile', 1) ? '1' : '0');
+        }
+        if (get_option('wpzoom_user_history_dashboard_lock_ajax') === false) {
+            update_option('wpzoom_user_history_dashboard_lock_ajax', get_option('rda_lock_ajax', 0) ? '1' : '0');
+        }
+
+        if (!function_exists('is_plugin_active')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        if (is_plugin_active('remove-dashboard-access-for-non-admins/remove-dashboard-access.php')) {
+            update_option('wpzoom_user_history_dashboard_access_enabled', '1');
         }
     }
 

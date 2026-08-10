@@ -4,7 +4,7 @@ Tags: user history, user log, audit log, change username, user tracking
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.2.1
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,16 @@ User History tracks all changes made to user profiles and displays a complete hi
 * **Locked Users Filter** - Filter the All Users list to show only locked accounts
 * **Custom Lock Message** - Set a custom message shown to locked users on the login screen (Settings > User History)
 * **WP-CLI Access** - Locked users can still be managed via WP-CLI
+
+**Dashboard Access Restriction:**
+
+* **Block wp-admin for Non-Admins** - Restrict dashboard access to administrators, editors, authors, or users with any specific capability
+* **Custom Redirect** - Send disallowed users to the homepage or any URL of your choice
+* **Profile Access Exception** - Optionally let restricted users still edit their own profile
+* **Login Screen Message** - Display a custom message above the login form
+* **URL Allowlist** - Exempt specific admin URLs from the restriction, with wildcard support (e.g. `?page=customer-*`)
+* **AJAX Blocking** - Optionally apply the restriction to admin-ajax.php requests
+* **Migration from Remove Dashboard Access plugin** - Automatically imports settings from the Remove Dashboard Access plugin
 
 **Admin Tools:**
 
@@ -165,12 +175,26 @@ Yes. Go to Settings > User History and uncheck "Record IP addresses" under the P
 
 Yes. When you activate User History, any users locked with the Lock User Account plugin will be automatically migrated to the new lock system.
 
+= How do I block non-admins from accessing the dashboard? =
+
+Go to Settings > User History > Dashboard Access tab. Enable "Restrict Dashboard Access", choose which users keep access (by role preset or a specific capability), and set the redirect URL for everyone else. You can optionally keep profile pages accessible, show a message on the login screen, and allowlist specific admin URLs.
+
+= I was using the Remove Dashboard Access plugin. Will my settings be migrated? =
+
+Yes. If the Remove Dashboard Access plugin is active when you update, its settings are imported automatically and the restriction stays enabled — you can then deactivate the old plugin. If the old plugin was already deactivated, the settings are still imported but the restriction stays off until you enable it.
+
 == Screenshots ==
 
 1. Account History section on the user edit page
 2. Lock/unlock user account from the user edit page
 
 == Changelog ==
+
+= 1.3.0 =
+* Added Dashboard Access restriction: block wp-admin for users without a chosen role or capability and redirect them to a custom URL
+* Added optional login screen message, profile access exception, AJAX request blocking, and an admin URL allowlist with wildcard support
+* Reorganized the settings page into tabs: General, Lock Account, and Dashboard Access
+* Automatic settings migration from the Remove Dashboard Access plugin
 
 = 1.2.1 =
 * Added details about user registration
