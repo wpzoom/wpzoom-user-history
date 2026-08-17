@@ -13,10 +13,10 @@ if (!defined('ABSPATH')) {
 /**
  * Handles the plugin settings page (Settings > User History).
  *
- * The page is organized into tabs (General / Lock Account / Dashboard Access).
- * Each tab has its own Settings API option group and page slug, derived from
- * the tab key: group `wpzoom_user_history_settings_{tab}` and page
- * `wpzoom-user-history-{tab}`.
+ * The page is organized into tabs (General / Lock Account / Dashboard Access /
+ * Username Restrictions). Each tab has its own Settings API option group and
+ * page slug, derived from the tab key: group
+ * `wpzoom_user_history_settings_{tab}` and page `wpzoom-user-history-{tab}`.
  */
 class WPZOOM_User_History_Settings {
 
@@ -27,6 +27,7 @@ class WPZOOM_User_History_Settings {
         add_action('admin_menu', [$this, 'add_settings_page']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('wp_ajax_wpzoom_user_history_clear_all', [$this, 'ajax_clear_all_logs']);
+        add_action('wp_ajax_wpzoom_user_history_test_usernames', [$this, 'ajax_test_usernames']);
     }
 
     /**
@@ -36,9 +37,10 @@ class WPZOOM_User_History_Settings {
      */
     private function get_tabs() {
         return [
-            'general'          => __('General', 'wpzoom-user-history'),
-            'lock'             => __('Lock Account', 'wpzoom-user-history'),
-            'dashboard-access' => __('Dashboard Access', 'wpzoom-user-history'),
+            'general'               => __('General', 'wpzoom-user-history'),
+            'lock'                  => __('Lock Account', 'wpzoom-user-history'),
+            'dashboard-access'      => __('Dashboard Access', 'wpzoom-user-history'),
+            'username-restrictions' => __('Username Restrictions', 'wpzoom-user-history'),
         ];
     }
 
@@ -96,6 +98,7 @@ class WPZOOM_User_History_Settings {
         $this->register_general_settings();
         $this->register_lock_settings();
         $this->register_dashboard_access_settings();
+        $this->register_username_restrictions_settings();
     }
 
     /**
@@ -303,9 +306,190 @@ class WPZOOM_User_History_Settings {
         );
     }
 
+    /**
+     * Username Restrictions tab: rules for usernames chosen at registration.
+     */
+    private function register_username_restrictions_settings() {
+        $group = $this->get_option_group('username-restrictions');
+        $page  = $this->get_settings_page('username-restrictions');
+
+        register_setting($group, 'wpzoom_user_history_username_restrictions_enabled', [
+            'type'              => 'string',
+            'sanitize_callback' => [$this, 'sanitize_checkbox'],
+            'default'           => '0',
+        ]);
+
+        register_setting($group, 'wpzoom_user_history_username_disallow_spaces', [
+            'type'              => 'string',
+            'sanitize_callback' => [$this, 'sanitize_checkbox'],
+            'default'           => '0',
+        ]);
+
+        register_setting($group, 'wpzoom_user_history_username_min_length', [
+            'type'              => 'integer',
+            'sanitize_callback' => [$this, 'sanitize_username_length'],
+            'default'           => 0,
+        ]);
+
+        register_setting($group, 'wpzoom_user_history_username_max_length', [
+            'type'              => 'integer',
+            'sanitize_callback' => [$this, 'sanitize_username_length'],
+            'default'           => 0,
+        ]);
+
+        register_setting($group, 'wpzoom_user_history_username_blocklist', [
+            'type'              => 'string',
+            'sanitize_callback' => [$this, 'sanitize_username_list'],
+            'default'           => '',
+        ]);
+
+        register_setting($group, 'wpzoom_user_history_username_partial_blocklist', [
+            'type'              => 'string',
+            'sanitize_callback' => [$this, 'sanitize_username_list'],
+            'default'           => '',
+        ]);
+
+        register_setting($group, 'wpzoom_user_history_username_required_partials', [
+            'type'              => 'string',
+            'sanitize_callback' => [$this, 'sanitize_username_list'],
+            'default'           => '',
+        ]);
+
+        register_setting($group, 'wpzoom_user_history_username_error_message', [
+            'type'              => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+            'default'           => '',
+        ]);
+
+        register_setting($group, 'wpzoom_user_history_username_apply_to_admins', [
+            'type'              => 'string',
+            'sanitize_callback' => [$this, 'sanitize_checkbox'],
+            'default'           => '0',
+        ]);
+
+        add_settings_section(
+            'wpzoom_user_history_username_section',
+            __('Username Restrictions', 'wpzoom-user-history'),
+            [$this, 'render_username_section_description'],
+            $page
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_username_restrictions_enabled',
+            __('Restrict Usernames', 'wpzoom-user-history'),
+            [$this, 'render_username_enabled_field'],
+            $page,
+            'wpzoom_user_history_username_section'
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_username_disallow_spaces',
+            __('Spaces', 'wpzoom-user-history'),
+            [$this, 'render_username_disallow_spaces_field'],
+            $page,
+            'wpzoom_user_history_username_section'
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_username_length',
+            __('Length', 'wpzoom-user-history'),
+            [$this, 'render_username_length_field'],
+            $page,
+            'wpzoom_user_history_username_section'
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_username_blocklist',
+            __('Blocked Usernames', 'wpzoom-user-history'),
+            [$this, 'render_username_blocklist_field'],
+            $page,
+            'wpzoom_user_history_username_section'
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_username_partial_blocklist',
+            __('Blocked Text', 'wpzoom-user-history'),
+            [$this, 'render_username_partial_blocklist_field'],
+            $page,
+            'wpzoom_user_history_username_section'
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_username_required_partials',
+            __('Required Text', 'wpzoom-user-history'),
+            [$this, 'render_username_required_partials_field'],
+            $page,
+            'wpzoom_user_history_username_section'
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_username_error_message',
+            __('Error Message', 'wpzoom-user-history'),
+            [$this, 'render_username_error_message_field'],
+            $page,
+            'wpzoom_user_history_username_section'
+        );
+
+        add_settings_section(
+            'wpzoom_user_history_username_advanced_section',
+            __('Advanced', 'wpzoom-user-history'),
+            '__return_null',
+            $page
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_username_apply_to_admins',
+            __('Administrators', 'wpzoom-user-history'),
+            [$this, 'render_username_apply_to_admins_field'],
+            $page,
+            'wpzoom_user_history_username_advanced_section'
+        );
+    }
+
     // =========================================================================
     // Sanitize callbacks
     // =========================================================================
+
+    /**
+     * Sanitize a username length limit.
+     *
+     * WordPress caps usernames at 60 characters, so anything above that is
+     * clamped. 0 means no limit.
+     *
+     * @param mixed $value Input value.
+     * @return int Integer between 0 and 60.
+     */
+    public function sanitize_username_length($value) {
+        return min(60, max(0, (int) $value));
+    }
+
+    /**
+     * Sanitize a newline-separated username / text-fragment list.
+     *
+     * Trims each line, lowercases (matching is case-insensitive), drops
+     * empties and duplicates. Returns the cleaned newline-separated string.
+     *
+     * @param mixed $value Raw textarea value.
+     * @return string
+     */
+    public function sanitize_username_list($value) {
+        if (!is_string($value) || $value === '') {
+            return '';
+        }
+
+        // Strip null bytes and other control chars (except tab/newlines).
+        $value = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $value);
+
+        $clean = [];
+        foreach (preg_split('/\R/', $value) as $line) {
+            $line = trim(wp_strip_all_tags($line));
+            if ($line !== '') {
+                $clean[] = mb_strtolower($line);
+            }
+        }
+
+        return implode("\n", array_values(array_unique($clean)));
+    }
 
     /**
      * Sanitize checkbox value.
@@ -795,8 +979,279 @@ class WPZOOM_User_History_Settings {
     }
 
     // =========================================================================
+    // Username Restrictions tab fields
+    // =========================================================================
+
+    /**
+     * Render the username restrictions section description.
+     */
+    public function render_username_section_description() {
+        echo '<p>' . esc_html__('Control which usernames visitors may pick when registering — block specific names or words, require a prefix or suffix, or enforce a length. Existing accounts are never affected. Matching is case-insensitive.', 'wpzoom-user-history') . '</p>';
+    }
+
+    /**
+     * Render the master toggle.
+     */
+    public function render_username_enabled_field() {
+        $value = get_option('wpzoom_user_history_username_restrictions_enabled', '0');
+        ?>
+        <label>
+            <input type="checkbox" name="wpzoom_user_history_username_restrictions_enabled" value="1" <?php checked($value, '1'); ?> />
+            <?php esc_html_e('Apply the rules below to usernames chosen during registration', 'wpzoom-user-history'); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e('Works with the standard WordPress registration form, Multisite signup, BuddyPress, WooCommerce and most plugins that validate usernames through WordPress.', 'wpzoom-user-history'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the disallow spaces field.
+     */
+    public function render_username_disallow_spaces_field() {
+        $value = get_option('wpzoom_user_history_username_disallow_spaces', '0');
+        ?>
+        <label>
+            <input type="checkbox" name="wpzoom_user_history_username_disallow_spaces" value="1" <?php checked($value, '1'); ?> />
+            <?php esc_html_e('Do not allow spaces in usernames', 'wpzoom-user-history'); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e('WordPress (single-site) allows spaces in usernames by default.', 'wpzoom-user-history'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the min/max length fields.
+     */
+    public function render_username_length_field() {
+        $min = (int) get_option('wpzoom_user_history_username_min_length', 0);
+        $max = (int) get_option('wpzoom_user_history_username_max_length', 0);
+        ?>
+        <label>
+            <?php esc_html_e('Minimum', 'wpzoom-user-history'); ?>
+            <input type="number" name="wpzoom_user_history_username_min_length" min="0" max="60" step="1" class="small-text" value="<?php echo esc_attr($min); ?>" />
+        </label>
+        &nbsp;&nbsp;
+        <label>
+            <?php esc_html_e('Maximum', 'wpzoom-user-history'); ?>
+            <input type="number" name="wpzoom_user_history_username_max_length" min="0" max="60" step="1" class="small-text" value="<?php echo esc_attr($max); ?>" />
+        </label>
+        <?php esc_html_e('characters', 'wpzoom-user-history'); ?>
+        <p class="description">
+            <?php esc_html_e('Set to 0 for no limit. WordPress itself never allows more than 60 characters.', 'wpzoom-user-history'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the exact blocklist field.
+     */
+    public function render_username_blocklist_field() {
+        $value = get_option('wpzoom_user_history_username_blocklist', '');
+        ?>
+        <textarea name="wpzoom_user_history_username_blocklist" class="large-text code" rows="5"
+                  placeholder="<?php echo esc_attr("admin\nsupport\nwebmaster"); ?>"><?php echo esc_textarea($value); ?></textarea>
+        <p class="description">
+            <?php esc_html_e('One username per line. These exact usernames cannot be registered — useful for official-sounding names or names you want to reserve.', 'wpzoom-user-history'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the partial blocklist field.
+     */
+    public function render_username_partial_blocklist_field() {
+        $value = get_option('wpzoom_user_history_username_partial_blocklist', '');
+        ?>
+        <textarea name="wpzoom_user_history_username_partial_blocklist" class="large-text code" rows="5"
+                  placeholder="<?php echo esc_attr("admin_\nofficial"); ?>"><?php echo esc_textarea($value); ?></textarea>
+        <p class="description">
+            <?php esc_html_e('One entry per line. Usernames containing any of these text fragments anywhere are rejected — useful for offensive words or a naming pattern reserved for staff (e.g. "admin_").', 'wpzoom-user-history'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the required partials field.
+     */
+    public function render_username_required_partials_field() {
+        $value = get_option('wpzoom_user_history_username_required_partials', '');
+        ?>
+        <textarea name="wpzoom_user_history_username_required_partials" class="large-text code" rows="5"
+                  placeholder="<?php echo esc_attr("^member_\n_team^"); ?>"><?php echo esc_textarea($value); ?></textarea>
+        <p class="description">
+            <?php esc_html_e('One entry per line. When set, a username must contain at least one of these text fragments.', 'wpzoom-user-history'); ?>
+            <?php
+            echo ' ';
+            echo wp_kses(
+                sprintf(
+                    /* translators: %1$s: the ^ character, %2$s: example prefix pattern, %3$s: example suffix pattern */
+                    __('Prefix with %1$s to require it at the start (%2$s) or suffix with %1$s to require it at the end (%3$s); without %1$s it may appear anywhere.', 'wpzoom-user-history'),
+                    '<code>^</code>',
+                    '<code>^member_</code>',
+                    '<code>_team^</code>'
+                ),
+                ['code' => []]
+            );
+            echo ' ';
+            esc_html_e('Leave empty to not require anything.', 'wpzoom-user-history');
+            ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the error message field.
+     */
+    public function render_username_error_message_field() {
+        $value = get_option('wpzoom_user_history_username_error_message', '');
+        ?>
+        <input type="text" name="wpzoom_user_history_username_error_message" class="regular-text"
+               value="<?php echo esc_attr($value); ?>"
+               placeholder="<?php echo esc_attr__('This username is not allowed. Please choose another.', 'wpzoom-user-history'); ?>" />
+        <p class="description">
+            <?php esc_html_e('Shown to visitors who pick a restricted username. Leave empty to use the default message. You may want to explain your naming rules here.', 'wpzoom-user-history'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the apply-to-admins field.
+     */
+    public function render_username_apply_to_admins_field() {
+        $value = get_option('wpzoom_user_history_username_apply_to_admins', '0');
+        ?>
+        <label>
+            <input type="checkbox" name="wpzoom_user_history_username_apply_to_admins" value="1" <?php checked($value, '1'); ?> />
+            <?php esc_html_e('Also apply the rules to usernames chosen by administrators', 'wpzoom-user-history'); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e('By default, users who can create accounts (administrators) bypass these rules when adding users in wp-admin or changing a username from the user edit page. Enable this to enforce the rules for them too. WP-CLI is always exempt.', 'wpzoom-user-history'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the "Test Usernames" tool (Username Restrictions tab).
+     */
+    private function render_username_test_tool() {
+        ?>
+        <hr />
+        <h2><?php esc_html_e('Test Usernames', 'wpzoom-user-history'); ?></h2>
+        <p class="description">
+            <?php esc_html_e('Check how the saved rules above evaluate sample usernames. Separate multiple usernames with commas. Save your changes first — the test uses the stored settings.', 'wpzoom-user-history'); ?>
+        </p>
+        <p>
+            <input type="text" id="wpzoom-user-history-test-usernames" class="regular-text" placeholder="admin, john_doe, member_jane" />
+            <button type="button" class="button" id="wpzoom-user-history-test-usernames-btn">
+                <?php esc_html_e('Test', 'wpzoom-user-history'); ?>
+            </button>
+        </p>
+        <ul id="wpzoom-user-history-test-usernames-results" style="display:none; margin-left: 4px;"></ul>
+
+        <script>
+        (function() {
+            var input = document.getElementById('wpzoom-user-history-test-usernames');
+            var btn = document.getElementById('wpzoom-user-history-test-usernames-btn');
+            var list = document.getElementById('wpzoom-user-history-test-usernames-results');
+            if (!input || !btn || !list) return;
+
+            function run() {
+                var value = input.value.trim();
+                if (!value) return;
+
+                btn.disabled = true;
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '<?php echo esc_url(admin_url('admin-ajax.php')); ?>');
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.onload = function() {
+                    btn.disabled = false;
+                    list.innerHTML = '';
+                    var res;
+                    try { res = JSON.parse(xhr.responseText); } catch (e) { res = null; }
+
+                    if (!res || !res.success) {
+                        var li = document.createElement('li');
+                        li.style.color = '#b32d2e';
+                        li.textContent = (res && res.data && res.data.message) || '<?php echo esc_js(__('Something went wrong.', 'wpzoom-user-history')); ?>';
+                        list.appendChild(li);
+                    } else {
+                        res.data.results.forEach(function(r) {
+                            var li = document.createElement('li');
+                            var name = document.createElement('code');
+                            name.textContent = r.username;
+                            var status = document.createElement('strong');
+                            status.style.color = r.valid ? '#0a6b2e' : '#b32d2e';
+                            status.textContent = r.valid ? '<?php echo esc_js(__('allowed', 'wpzoom-user-history')); ?>' : '<?php echo esc_js(__('restricted', 'wpzoom-user-history')); ?>';
+                            li.appendChild(name);
+                            li.appendChild(document.createTextNode(' — '));
+                            li.appendChild(status);
+                            if (!r.valid && r.reason) {
+                                li.appendChild(document.createTextNode(' (' + r.reason + ')'));
+                            }
+                            list.appendChild(li);
+                        });
+                        if (!res.data.enabled) {
+                            var note = document.createElement('li');
+                            note.className = 'description';
+                            note.textContent = '<?php echo esc_js(__('Note: username restrictions are currently disabled, so these rules are not being enforced.', 'wpzoom-user-history')); ?>';
+                            list.appendChild(note);
+                        }
+                    }
+                    list.style.display = 'block';
+                };
+                xhr.send('action=wpzoom_user_history_test_usernames&nonce=<?php echo esc_js(wp_create_nonce('wpzoom_user_history_test_usernames')); ?>&usernames=' + encodeURIComponent(value));
+            }
+
+            btn.addEventListener('click', run);
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); run(); }
+            });
+        })();
+        </script>
+        <?php
+    }
+
+    // =========================================================================
     // AJAX
     // =========================================================================
+
+    /**
+     * AJAX handler for the username test tool.
+     */
+    public function ajax_test_usernames() {
+        check_ajax_referer('wpzoom_user_history_test_usernames', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Unauthorized', 'wpzoom-user-history')]);
+        }
+
+        $restrictions = WPZOOM_User_History::get_instance()->username_restrictions;
+        if (!$restrictions) {
+            wp_send_json_error(['message' => __('Something went wrong.', 'wpzoom-user-history')]);
+        }
+
+        $raw       = isset($_POST['usernames']) ? sanitize_text_field(wp_unslash($_POST['usernames'])) : '';
+        $usernames = array_filter(array_map('trim', explode(',', $raw)), 'strlen');
+        $usernames = array_slice(array_unique($usernames), 0, 50);
+
+        $results = [];
+        foreach ($usernames as $username) {
+            $reason    = $restrictions->get_restriction_reason($username);
+            $results[] = [
+                'username' => $username,
+                'valid'    => $reason === null,
+                'reason'   => $reason === null ? '' : $reason,
+            ];
+        }
+
+        wp_send_json_success([
+            'enabled' => $restrictions->is_enabled(),
+            'results' => $results,
+        ]);
+    }
 
     /**
      * AJAX handler for clearing all logs.
@@ -857,6 +1312,8 @@ class WPZOOM_User_History_Settings {
                 <?php $this->render_clear_all_logs(); ?>
             <?php elseif ($active_tab === 'dashboard-access') : ?>
                 <?php $this->render_dashboard_access_js(); ?>
+            <?php elseif ($active_tab === 'username-restrictions') : ?>
+                <?php $this->render_username_test_tool(); ?>
             <?php endif; ?>
         </div>
         <?php

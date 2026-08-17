@@ -4,7 +4,7 @@ Tags: user history, user log, audit log, change username, user tracking
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,6 +52,18 @@ User History tracks all changes made to user profiles and displays a complete hi
 * **URL Allowlist** - Exempt specific admin URLs from the restriction, with wildcard support (e.g. `?page=customer-*`)
 * **AJAX Blocking** - Optionally apply the restriction to admin-ajax.php requests
 * **Migration from Remove Dashboard Access plugin** - Automatically imports settings from the Remove Dashboard Access plugin
+
+**Username Restrictions:**
+
+* **Block Specific Usernames** - Prevent visitors from registering with reserved or official-sounding names (admin, support, webmaster...)
+* **Block Words in Usernames** - Reject usernames containing certain text fragments, such as offensive words or a prefix reserved for staff
+* **Require a Prefix, Suffix or Substring** - Force usernames to start with, end with, or contain one of your chosen fragments
+* **Length Limits** - Enforce a minimum and/or maximum username length
+* **Disallow Spaces** - Reject usernames containing spaces (WordPress allows them by default)
+* **Custom Error Message** - Explain your naming rules to visitors who pick a restricted username
+* **Username Test Tool** - Check sample usernames against your rules right on the settings page, with the reason for each rejection
+* **Broad Compatibility** - Works with the WordPress registration form, Multisite signup, BuddyPress, WooCommerce and most registration plugins
+* **Migration from Restrict Usernames plugin** - Automatically imports settings from the Restrict Usernames plugin
 
 **Admin Tools:**
 
@@ -183,12 +195,30 @@ Go to Settings > User History > Dashboard Access tab. Enable "Restrict Dashboard
 
 Yes. If the Remove Dashboard Access plugin is active when you update, its settings are imported automatically and the restriction stays enabled — you can then deactivate the old plugin. If the old plugin was already deactivated, the settings are still imported but the restriction stays off until you enable it.
 
+= How do I restrict which usernames people can register with? =
+
+Go to Settings > User History > Username Restrictions tab and enable "Restrict Usernames". You can block exact usernames, block text fragments anywhere in a username, require a prefix/suffix/substring, set a minimum and maximum length, and disallow spaces. Use the "Test Usernames" tool at the bottom of the tab to see how your saved rules evaluate sample usernames.
+
+= Do username restrictions affect existing accounts or administrators? =
+
+Existing accounts are never affected — only new registrations are checked. By default, users who can create accounts (administrators) bypass the rules when adding users in wp-admin or changing usernames; enable "Also apply the rules to usernames chosen by administrators" under Advanced to enforce them there too.
+
+= I was using the Restrict Usernames plugin. Will my settings be migrated? =
+
+Yes. If the Restrict Usernames plugin is active when you update, its settings are imported automatically and the restriction stays enabled — you can then deactivate the old plugin. If the old plugin was already deactivated, the settings are still imported but the restriction stays off until you enable it. Code using the `c2c_restrict_usernames-validate` filter can switch to `wpzoom_user_history_validate_username`, which takes the same arguments.
+
 == Screenshots ==
 
 1. Account History section on the user edit page
 2. Lock/unlock user account from the user edit page
 
 == Changelog ==
+
+= 1.4.0 =
+* Added Username Restrictions: block specific usernames or words, require a prefix/suffix/substring, enforce length limits, and disallow spaces in usernames chosen at registration
+* Added a custom error message for restricted usernames and a "Test Usernames" tool on the settings page
+* Optionally apply username rules to administrators (Add New User and Change Username)
+* Automatic settings migration from the Restrict Usernames plugin
 
 = 1.3.0 =
 * Added Dashboard Access restriction: block wp-admin for users without a chosen role or capability and redirect them to a custom URL

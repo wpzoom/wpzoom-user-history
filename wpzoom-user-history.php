@@ -3,7 +3,7 @@
  * Plugin Name: WPZOOM User History
  * Plugin URI: https://github.com/wpzoom/user-history
  * Description: Tracks changes made to user accounts (name, email, username, etc.) and displays a history log on the user edit page.
- * Version: 1.3.0
+ * Version: 1.4.0
  * Author: WPZOOM
  * Author URI: https://www.wpzoom.com
  * License: GPL v2 or later
@@ -91,6 +91,13 @@ class WPZOOM_User_History {
      * @var WPZOOM_User_History_Dashboard_Access
      */
     public $dashboard_access;
+
+    /**
+     * Username restrictions instance.
+     *
+     * @var WPZOOM_User_History_Username_Restrictions
+     */
+    public $username_restrictions;
 
     /**
      * Get singleton instance.
@@ -209,14 +216,16 @@ class WPZOOM_User_History {
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-settings.php';
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-login-tracker.php';
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-dashboard-access.php';
+        require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-username-restrictions.php';
 
         // Create feature instances (each registers its own hooks in constructor)
-        $this->tracker          = new WPZOOM_User_History_Tracker($this);
-        $this->lock             = new WPZOOM_User_History_Lock($this);
-        $this->admin            = new WPZOOM_User_History_Admin($this);
-        $this->settings         = new WPZOOM_User_History_Settings();
-        $this->login_tracker    = new WPZOOM_User_History_Login_Tracker($this);
-        $this->dashboard_access = new WPZOOM_User_History_Dashboard_Access();
+        $this->tracker               = new WPZOOM_User_History_Tracker($this);
+        $this->lock                  = new WPZOOM_User_History_Lock($this);
+        $this->admin                 = new WPZOOM_User_History_Admin($this);
+        $this->settings              = new WPZOOM_User_History_Settings();
+        $this->login_tracker         = new WPZOOM_User_History_Login_Tracker($this);
+        $this->dashboard_access      = new WPZOOM_User_History_Dashboard_Access();
+        $this->username_restrictions = new WPZOOM_User_History_Username_Restrictions();
     }
 
     /**
@@ -229,7 +238,62 @@ class WPZOOM_User_History {
             $this->create_table();
             $this->maybe_migrate_lock_data();
             $this->maybe_migrate_rda_settings();
+            $this->maybe_migrate_restrict_usernames_settings();
             update_option('wpzoom_user_history_version', WPZOOM_USER_HISTORY_VERSION);
+        }
+    }
+
+    /**
+     * Migrate settings from the Restrict Usernames plugin (c2c_restrict_usernames option).
+     *
+     * As with the Dashboard Access migration, the feature is auto-enabled only
+     * when the old plugin is currently active; otherwise the values are
+     * imported but the restriction stays off.
+     */
+    private function maybe_migrate_restrict_usernames_settings() {
+        if (get_option('wpzoom_user_history_migrated_restrict_usernames')) {
+            return;
+        }
+
+        update_option('wpzoom_user_history_migrated_restrict_usernames', '1');
+
+        $old = get_option('c2c_restrict_usernames');
+        if (!is_array($old) || empty($old)) {
+            return;
+        }
+
+        $to_lines = static function ($value) {
+            if (is_string($value)) {
+                $value = preg_split('/\R/', $value);
+            }
+            if (!is_array($value)) {
+                return '';
+            }
+            $value = array_filter(array_map('trim', array_map('strval', $value)), 'strlen');
+            return implode("\n", array_values(array_unique(array_map('mb_strtolower', $value))));
+        };
+
+        $map = [
+            'disallow_spaces'   => ['wpzoom_user_history_username_disallow_spaces', static function ($v) { return $v ? '1' : '0'; }],
+            'min_length'        => ['wpzoom_user_history_username_min_length', static function ($v) { return min(60, max(0, (int) $v)); }],
+            'max_length'        => ['wpzoom_user_history_username_max_length', static function ($v) { return min(60, max(0, (int) $v)); }],
+            'usernames'         => ['wpzoom_user_history_username_blocklist', $to_lines],
+            'partial_usernames' => ['wpzoom_user_history_username_partial_blocklist', $to_lines],
+            'required_partials' => ['wpzoom_user_history_username_required_partials', $to_lines],
+        ];
+
+        foreach ($map as $old_key => list($new_key, $convert)) {
+            if (isset($old[ $old_key ]) && get_option($new_key) === false) {
+                update_option($new_key, $convert($old[ $old_key ]));
+            }
+        }
+
+        if (!function_exists('is_plugin_active')) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+
+        if (is_plugin_active('restrict-usernames/restrict-usernames.php')) {
+            update_option('wpzoom_user_history_username_restrictions_enabled', '1');
         }
     }
 

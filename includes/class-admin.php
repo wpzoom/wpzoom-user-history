@@ -840,9 +840,14 @@ class WPZOOM_User_History_Admin {
             wp_send_json($response);
         }
 
-        // Validate username characters
+        // Validate username characters (and, when enabled for admins, username restrictions)
         if (!validate_username($new_username)) {
-            $response['message'] = __('This username contains invalid characters.', 'wpzoom-user-history');
+            $restrictions = $this->plugin->username_restrictions;
+            if ($restrictions && $restrictions->was_restricted()) {
+                $response['message'] = $restrictions->get_error_message();
+            } else {
+                $response['message'] = __('This username contains invalid characters.', 'wpzoom-user-history');
+            }
             wp_send_json($response);
         }
 
