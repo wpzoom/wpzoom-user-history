@@ -4,7 +4,7 @@ Tags: user history, user log, audit log, change username, user tracking
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.4.0
+Stable tag: 1.4.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ Track changes made to user accounts, keep a lightweight site activity log, lock/
 
 User History tracks all changes made to user profiles and displays a complete history log on the user edit page. It also keeps a lightweight site-wide activity log, lets admins lock or unlock user accounts, change usernames, restrict dashboard access and registration usernames, monitor login/logout activity, manage active sessions, and search for users by their previous details.
 
-Everything lives under a dedicated **User History** admin menu: Activity Log, Lock Account, Dashboard Access, Username Restrictions and Settings.
+Everything lives under a dedicated **User History** admin menu: Activity Log, Lock Accounts, Dashboard Access, Username Restrictions and Settings.
 
 **Activity Log:**
 
@@ -55,7 +55,7 @@ Everything lives under a dedicated **User History** admin menu: Activity Log, Lo
 * **Bulk Lock/Unlock** - Lock or unlock multiple users at once from the All Users page
 * **Row Actions** - Quickly lock or unlock individual users from the All Users list
 * **Locked Users Filter** - Filter the All Users list to show only locked accounts
-* **Custom Lock Message** - Set a custom message shown to locked users on the login screen (User History > Lock Account)
+* **Custom Lock Message** - Set a custom message shown to locked users on the login screen (User History > Lock Accounts)
 * **WP-CLI Access** - Locked users can still be managed via WP-CLI
 
 **Dashboard Access Restriction:**
@@ -176,7 +176,7 @@ Locked users are logged out immediately and cannot log back in until unlocked.
 
 = How do I customize the locked account message? =
 
-Go to User History > Lock Account. You can set a custom message that locked users will see when they try to log in. Leave it empty to use the default message.
+Go to User History > Lock Accounts. You can set a custom message that locked users will see when they try to log in. Leave it empty to use the default message.
 
 = How do I clear a user's history? =
 
@@ -241,13 +241,18 @@ Yes. If the Restrict Usernames plugin is active when you update, its settings ar
 
 == Changelog ==
 
+= 1.4.1 =
+* Renamed the "General" page to "Settings" and moved it to the end of the User History menu
+* Renamed "Lock Account" to "Lock Accounts" in the menu
+* Fixed the "Settings saved." notice appearing twice after saving settings
+
 = 1.4.0 =
-* New top-level "User History" admin menu with Activity Log, Lock Account, Dashboard Access, Username Restrictions and Settings pages (old Settings > User History links redirect)
+* New top-level "User History" admin menu with Activity Log, Lock Accounts, Dashboard Access, Username Restrictions and Settings pages (old Settings > User History links redirect)
 * Added a lightweight Activity Log: content, media, comments, users, logins, plugins/themes/core and settings events, with filters, search, per-group toggles and shared retention
 * Added Username Restrictions: block specific usernames or words, require a prefix/suffix/substring, enforce length limits, and disallow spaces in usernames chosen at registration
 * Added a custom error message for restricted usernames and a "Test Usernames" tool on the settings page
 * Optionally apply username rules to administrators (Add New User and Change Username)
-* Lock Account page now shows an overview: locked-account stats, how locking works, the currently locked users with one-click Unlock, and recent lock/unlock activity
+* Lock Accounts page now shows an overview: locked-account stats, how locking works, the currently locked users with one-click Unlock, and recent lock/unlock activity
 * Automatic settings migration from the Restrict Usernames plugin
 
 = 1.3.0 =

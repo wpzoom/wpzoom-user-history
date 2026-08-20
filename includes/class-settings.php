@@ -56,7 +56,7 @@ class WPZOOM_User_History_Settings {
      */
     private function get_tabs() {
         return [
-            'lock'                  => __('Lock Account', 'wpzoom-user-history'),
+            'lock'                  => __('Lock Accounts', 'wpzoom-user-history'),
             'dashboard-access'      => __('Dashboard Access', 'wpzoom-user-history'),
             'username-restrictions' => __('Username Restrictions', 'wpzoom-user-history'),
             'general'               => __('Settings', 'wpzoom-user-history'),
