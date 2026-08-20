@@ -91,7 +91,7 @@ On the All Users page, use the search box to search for any previous email, user
 
 ### Configuring Settings
 
-Go to **User History** in the admin menu (General / Lock Account / Dashboard Access / Username Restrictions) to configure:
+Go to **User History** in the admin menu (Lock Account / Dashboard Access / Username Restrictions / Settings) to configure:
 - Custom locked account message
 - IP address tracking (enable/disable)
 - Data retention period (default: 30 days)

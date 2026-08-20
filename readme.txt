@@ -14,7 +14,7 @@ Track changes made to user accounts, keep a lightweight site activity log, lock/
 
 User History tracks all changes made to user profiles and displays a complete history log on the user edit page. It also keeps a lightweight site-wide activity log, lets admins lock or unlock user accounts, change usernames, restrict dashboard access and registration usernames, monitor login/logout activity, manage active sessions, and search for users by their previous details.
 
-Everything lives under a dedicated **User History** admin menu: Activity Log, General, Lock Account, Dashboard Access and Username Restrictions.
+Everything lives under a dedicated **User History** admin menu: Activity Log, Lock Account, Dashboard Access, Username Restrictions and Settings.
 
 **Activity Log:**
 
@@ -89,7 +89,7 @@ Everything lives under a dedicated **User History** admin menu: Activity Log, Ge
 
 **Privacy & Compliance:**
 
-* **IP Tracking Toggle** - Enable or disable IP address recording for GDPR compliance (User History > General)
+* **IP Tracking Toggle** - Enable or disable IP address recording for GDPR compliance (User History > Settings)
 * **Configurable Retention** - Set how long logs are kept (1-365+ days, or keep forever)
 * **Automatic Cleanup** - Daily cron job removes logs older than the configured retention period
 
@@ -180,11 +180,11 @@ Go to User History > Lock Account. You can set a custom message that locked user
 
 = How do I clear a user's history? =
 
-On the user edit page, scroll down to the Account History section and click the "Clear Log" button. To clear all logs for every user at once, go to User History > General and click "Clear All Logs".
+On the user edit page, scroll down to the Account History section and click the "Clear Log" button. To clear all logs for every user at once, go to User History > Settings and click "Clear All Logs".
 
 = How do I control how long logs are kept? =
 
-Go to User History > General. Under "Data Retention", set the number of days to keep logs (default: 30). Old logs are automatically deleted daily. Set to 0 to keep logs indefinitely.
+Go to User History > Settings. Under "Data Retention", set the number of days to keep logs (default: 30). Old logs are automatically deleted daily. Set to 0 to keep logs indefinitely.
 
 = Can I see when users log in and out? =
 
@@ -196,7 +196,7 @@ On the user edit page, scroll down to Account History and click the "Sessions" t
 
 = Can I disable IP address tracking? =
 
-Yes. Go to User History > General and uncheck "Record IP addresses" under the Privacy section. This helps with GDPR compliance.
+Yes. Go to User History > Settings and uncheck "Record IP addresses" under the Privacy section. This helps with GDPR compliance.
 
 = I was using the Lock User Account plugin. Will my locked users be migrated? =
 
@@ -224,7 +224,7 @@ Go to User History > Activity Log to see a chronological list of actions perform
 
 = Can I turn off some activity events, or the whole activity log? =
 
-Yes. Go to User History > General, scroll to "Activity Log", and untick the event groups you don't need — or untick "Enable the activity log" to stop recording entirely. Activity entries follow the same retention period as user history logs.
+Yes. Go to User History > Settings, scroll to "Activity Log", and untick the event groups you don't need — or untick "Enable the activity log" to stop recording entirely. Activity entries follow the same retention period as user history logs.
 
 = Is the Activity Log a replacement for a full audit log plugin? =
 
@@ -242,7 +242,7 @@ Yes. If the Restrict Usernames plugin is active when you update, its settings ar
 == Changelog ==
 
 = 1.4.0 =
-* New top-level "User History" admin menu with Activity Log, General, Lock Account, Dashboard Access and Username Restrictions pages (old Settings > User History links redirect)
+* New top-level "User History" admin menu with Activity Log, Lock Account, Dashboard Access, Username Restrictions and Settings pages (old Settings > User History links redirect)
 * Added a lightweight Activity Log: content, media, comments, users, logins, plugins/themes/core and settings events, with filters, search, per-group toggles and shared retention
 * Added Username Restrictions: block specific usernames or words, require a prefix/suffix/substring, enforce length limits, and disallow spaces in usernames chosen at registration
 * Added a custom error message for restricted usernames and a "Test Usernames" tool on the settings page

@@ -56,10 +56,10 @@ class WPZOOM_User_History_Settings {
      */
     private function get_tabs() {
         return [
-            'general'               => __('General', 'wpzoom-user-history'),
             'lock'                  => __('Lock Account', 'wpzoom-user-history'),
             'dashboard-access'      => __('Dashboard Access', 'wpzoom-user-history'),
             'username-restrictions' => __('Username Restrictions', 'wpzoom-user-history'),
+            'general'               => __('Settings', 'wpzoom-user-history'),
         ];
     }
 
@@ -1738,12 +1738,6 @@ class WPZOOM_User_History_Settings {
         $tabs       = $this->get_tabs();
         $active_tab = $this->get_active_tab();
 
-        // Custom top-level pages don't get options-head.php, which is what
-        // turns ?settings-updated=true into the "Settings saved." notice.
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only notice after the Settings API redirect
-        if (!empty($_GET['settings-updated'])) {
-            add_settings_error('general', 'settings_updated', __('Settings saved.', 'wpzoom-user-history'), 'success');
-        }
         ?>
         <div class="wrap">
             <h1>
