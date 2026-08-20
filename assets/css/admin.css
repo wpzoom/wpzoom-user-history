@@ -611,3 +611,213 @@
     width: 80px;
 }
 
+
+/* ==========================================================================
+   Activity Log (User History > Activity Log)
+   ========================================================================== */
+.user-history-activity-wrap .column-created_at { width: 14%; }
+.user-history-activity-wrap .column-user { width: 18%; }
+.user-history-activity-wrap .column-event { width: 13%; }
+.user-history-activity-wrap .column-ip_address { width: 11%; }
+
+@media screen and (max-width: 782px) {
+    .user-history-activity-wrap .column-created_at,
+    .user-history-activity-wrap .column-user,
+    .user-history-activity-wrap .column-event,
+    .user-history-activity-wrap .column-ip_address { width: auto; }
+}
+
+.user-history-activity-ago {
+    color: #757575;
+    font-size: 12px;
+}
+
+.user-history-activity-avatar {
+    float: left;
+    margin-right: 8px;
+    border-radius: 50%;
+}
+
+.user-history-activity-user {
+    display: block;
+    overflow: hidden;
+    line-height: 1.4;
+}
+
+.user-history-activity-login {
+    color: #757575;
+    font-size: 12px;
+    text-decoration: none;
+}
+
+.user-history-activity-login:hover {
+    color: #2271b1;
+}
+
+.user-history-activity-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.6;
+    white-space: nowrap;
+    background: #f0f0f1;
+    color: #3c434a;
+}
+
+.user-history-activity-badge-content    { background: #e7f2fb; color: #1d5a94; }
+.user-history-activity-badge-media      { background: #f0ebf9; color: #5b3d8f; }
+.user-history-activity-badge-comments   { background: #fef4e6; color: #8a4b0b; }
+.user-history-activity-badge-users      { background: #e6f5ec; color: #0a6b2e; }
+.user-history-activity-badge-logins     { background: #eef1f4; color: #3c4c5c; }
+.user-history-activity-badge-extensions { background: #fdecec; color: #a32d2d; }
+.user-history-activity-badge-settings   { background: #fbf3d9; color: #6f5a09; }
+
+.user-history-activity-via {
+    color: #757575;
+    font-size: 11px;
+    font-style: italic;
+}
+
+.user-history-activity-diff {
+    color: #50575e;
+    font-size: 12px;
+}
+
+.user-history-activity-diff del {
+    color: #b32d2e;
+    text-decoration: line-through;
+}
+
+.user-history-activity-diff ins {
+    color: #0a6b2e;
+    text-decoration: none;
+}
+
+/* ==========================================================================
+   Settings page overview panels (User History > Lock Account)
+   ========================================================================== */
+.user-history-overview {
+    margin: 16px 0 24px;
+}
+
+.user-history-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.user-history-stat {
+    flex: 1 1 180px;
+    display: block;
+    padding: 14px 18px;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+    text-decoration: none;
+    color: inherit;
+}
+
+a.user-history-stat:hover {
+    border-color: #2271b1;
+}
+
+.user-history-stat-value {
+    display: block;
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: #1d2327;
+}
+
+a.user-history-stat:hover .user-history-stat-value {
+    color: #2271b1;
+}
+
+.user-history-stat-label {
+    display: block;
+    margin-top: 2px;
+    color: #646970;
+    font-size: 12px;
+}
+
+.user-history-overview-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+}
+
+@media screen and (max-width: 1100px) {
+    .user-history-overview-columns {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.user-history-overview-box {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, .04);
+    padding: 4px 18px 16px;
+}
+
+.user-history-overview-box h2 {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 14px;
+    margin: 12px 0 8px;
+}
+
+.user-history-overview-box h3 {
+    font-size: 13px;
+    margin: 16px 0 6px;
+}
+
+.user-history-overview-box ul {
+    margin: 0 0 8px 18px;
+    list-style: disc;
+}
+
+.user-history-overview-box li {
+    margin-bottom: 6px;
+}
+
+.user-history-overview-more {
+    font-size: 12px;
+    font-weight: 400;
+    text-decoration: none;
+}
+
+.user-history-overview-subheading {
+    margin-top: 20px !important;
+}
+
+.user-history-overview-table td {
+    vertical-align: middle;
+}
+
+.user-history-overview-actions {
+    text-align: right;
+}
+
+.user-history-overview-events {
+    list-style: none !important;
+    margin-left: 0 !important;
+}
+
+.user-history-overview-events li {
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.user-history-overview-events li:last-child {
+    border-bottom: 0;
+}
+
+.user-history-overview-events .user-history-lock-badge {
+    margin-right: 6px;
+}

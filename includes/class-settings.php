@@ -13,12 +13,26 @@ if (!defined('ABSPATH')) {
 /**
  * Handles the plugin settings page (Settings > User History).
  *
- * The page is organized into tabs (General / Lock Account / Dashboard Access /
- * Username Restrictions). Each tab has its own Settings API option group and
- * page slug, derived from the tab key: group
- * `wpzoom_user_history_settings_{tab}` and page `wpzoom-user-history-{tab}`.
+ * The plugin has a top-level "User History" admin menu. The parent page is
+ * the Activity Log; each settings section (General / Lock Account /
+ * Dashboard Access / Username Restrictions) is its own submenu page. Each
+ * section has its own Settings API option group and page slug, derived from
+ * the section key: group `wpzoom_user_history_settings_{tab}` and page
+ * `wpzoom-user-history-{tab}` (which is also the submenu slug).
  */
 class WPZOOM_User_History_Settings {
+
+    /**
+     * Parent menu slug (Activity Log page).
+     */
+    const MENU_SLUG = 'wpzoom-user-history';
+
+    /**
+     * Activity log page hook suffix (set in add_settings_page()).
+     *
+     * @var string
+     */
+    private $activity_hook = '';
 
     /**
      * Constructor — registers hooks.
@@ -26,14 +40,19 @@ class WPZOOM_User_History_Settings {
     public function __construct() {
         add_action('admin_menu', [$this, 'add_settings_page']);
         add_action('admin_init', [$this, 'register_settings']);
+        add_action('admin_init', [$this, 'redirect_legacy_settings_url']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
+        add_filter('set-screen-option', [$this, 'save_screen_option'], 10, 3);
+        add_filter('plugin_action_links_' . plugin_basename(WPZOOM_USER_HISTORY_PLUGIN_DIR . 'wpzoom-user-history.php'), [$this, 'add_plugin_action_links']);
         add_action('wp_ajax_wpzoom_user_history_clear_all', [$this, 'ajax_clear_all_logs']);
+        add_action('wp_ajax_wpzoom_user_history_clear_activity', [$this, 'ajax_clear_activity_log']);
         add_action('wp_ajax_wpzoom_user_history_test_usernames', [$this, 'ajax_test_usernames']);
     }
 
     /**
-     * Settings page tabs.
+     * Settings sections (each is a submenu page).
      *
-     * @return array Tab labels keyed by tab slug.
+     * @return array Labels keyed by section slug.
      */
     private function get_tabs() {
         return [
@@ -45,17 +64,86 @@ class WPZOOM_User_History_Settings {
     }
 
     /**
-     * Currently active settings tab.
+     * Currently active settings section, derived from the `page` query var
+     * (submenu slug `wpzoom-user-history-{tab}`).
      *
-     * @return string Tab slug.
+     * @return string Section slug.
      */
     private function get_active_tab() {
         $tabs = $this->get_tabs();
 
-        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Selecting which tab to display, no state change
-        $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'general';
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Selecting which page to display, no state change
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+        $tab  = (strpos($page, self::MENU_SLUG . '-') === 0) ? substr($page, strlen(self::MENU_SLUG) + 1) : 'general';
 
         return isset($tabs[ $tab ]) ? $tab : 'general';
+    }
+
+    /**
+     * Admin URL for a settings section (or the Activity Log when empty).
+     *
+     * @param string $tab Section slug, or '' for the Activity Log.
+     * @return string
+     */
+    public static function get_page_url($tab = '') {
+        $slug = $tab === '' ? self::MENU_SLUG : self::MENU_SLUG . '-' . $tab;
+        return add_query_arg('page', $slug, admin_url('admin.php'));
+    }
+
+    /**
+     * Redirect old Settings > User History links to the new menu location.
+     */
+    public function redirect_legacy_settings_url() {
+        global $pagenow;
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only redirect of a legacy URL
+        if ($pagenow !== 'options-general.php' || !isset($_GET['page']) || sanitize_key(wp_unslash($_GET['page'])) !== self::MENU_SLUG) {
+            return;
+        }
+
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+        $tab = isset($_GET['tab']) ? sanitize_key(wp_unslash($_GET['tab'])) : 'general';
+        if (!isset($this->get_tabs()[ $tab ])) {
+            $tab = 'general';
+        }
+
+        wp_safe_redirect(self::get_page_url($tab));
+        exit;
+    }
+
+    /**
+     * Add a Settings link on the Plugins screen.
+     *
+     * @param array $links Action links.
+     * @return array
+     */
+    public function add_plugin_action_links($links) {
+        array_unshift(
+            $links,
+            '<a href="' . esc_url(self::get_page_url('general')) . '">' . esc_html__('Settings', 'wpzoom-user-history') . '</a>',
+            '<a href="' . esc_url(self::get_page_url()) . '">' . esc_html__('Activity Log', 'wpzoom-user-history') . '</a>'
+        );
+        return $links;
+    }
+
+    /**
+     * Load the plugin stylesheet on our admin pages.
+     *
+     * @param string $hook Current admin page hook.
+     */
+    public function enqueue_assets($hook) {
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only page detection
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+        if ($page !== self::MENU_SLUG && strpos($page, self::MENU_SLUG . '-') !== 0) {
+            return;
+        }
+
+        wp_enqueue_style(
+            'wpzoom-user-history-admin',
+            WPZOOM_USER_HISTORY_PLUGIN_URL . 'assets/css/admin.css',
+            [],
+            WPZOOM_USER_HISTORY_VERSION
+        );
     }
 
     /**
@@ -79,16 +167,83 @@ class WPZOOM_User_History_Settings {
     }
 
     /**
-     * Add settings page under Settings menu.
+     * Add the top-level "User History" menu with its submenu pages.
      */
     public function add_settings_page() {
-        add_options_page(
+        add_menu_page(
             __('User History', 'wpzoom-user-history'),
             __('User History', 'wpzoom-user-history'),
             'manage_options',
-            'wpzoom-user-history',
-            [$this, 'render_settings_page']
+            self::MENU_SLUG,
+            [$this, 'render_activity_log_page'],
+            self::get_menu_icon(),
+            71 // Right after Users (70)
         );
+
+        // First submenu duplicates the parent so it reads "Activity Log".
+        $this->activity_hook = add_submenu_page(
+            self::MENU_SLUG,
+            __('Activity Log', 'wpzoom-user-history'),
+            __('Activity Log', 'wpzoom-user-history'),
+            'manage_options',
+            self::MENU_SLUG,
+            [$this, 'render_activity_log_page']
+        );
+
+        if ($this->activity_hook) {
+            add_action('load-' . $this->activity_hook, [$this, 'add_activity_screen_options']);
+        }
+
+        foreach ($this->get_tabs() as $tab => $label) {
+            add_submenu_page(
+                self::MENU_SLUG,
+                /* translators: %s: settings section name */
+                sprintf(__('User History — %s', 'wpzoom-user-history'), $label),
+                $label,
+                'manage_options',
+                self::MENU_SLUG . '-' . $tab,
+                [$this, 'render_settings_page']
+            );
+        }
+    }
+
+    /**
+     * Admin menu icon as a base64 SVG data URI.
+     *
+     * WordPress's svg-painter.js recolors the SVG fills to match the current
+     * admin color scheme (and hover/current states), so a single neutral fill
+     * is used here rather than the brand colors.
+     *
+     * @return string
+     */
+    public static function get_menu_icon() {
+        return 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTAgMTkwIj48cGF0aCBmaWxsPSIjYTdhYWFkIiBkPSJNOTUgMTg0LjAxOEMxMTcuODAzIDE4NC4wMTggMTQwLjYxNSAxNzUuMzM0IDE1Ny45NzYgMTU3Ljk3NkMxNzQuOCAxNDEuMTU1IDE4NC4wNjIgMTE4Ljc4OSAxODQuMDYyIDk1QzE4NC4wNjIgNzEuMjExNCAxNzQuNzk3IDQ4Ljg0NDggMTU3Ljk3NiAzMi4wMjM5QzE0MS4xNTUgMTUuMiAxMTguNzg5IDUuOTM3NSA5NSA1LjkzNzVDNzMuNTIxMSA1LjkzNzUgNTMuMjE3OCAxMy41MTM4IDM3LjA5MTYgMjcuMzYzVjE0Ljc1NzdDMzcuMDkxNiAxMy4xMTg5IDM1Ljc2MTYgMTEuNzg4OSAzNC4xMjI4IDExLjc4ODlDMzIuNDg0MSAxMS43ODg5IDMxLjE1NDEgMTMuMTE4OSAzMS4xNTQxIDE0Ljc1NzdWMzQuMTIyOEMzMS4xNTQxIDM0LjUwODggMzEuMjM0MiAzNC44OTQ3IDMxLjM4MjYgMzUuMjU2OUMzMS42ODI1IDM1Ljk4MTMgMzIuMjYxNCAzNi41NjAyIDMyLjk4ODcgMzYuODYzQzMzLjM1MDkgMzcuMDE0NCAzMy43MzY5IDM3LjA5MTYgMzQuMTIyOCAzNy4wOTE2SDUzLjQ4OEM1NS4xMjY3IDM3LjA5MTYgNTYuNDU2NyAzNS43NjE2IDU2LjQ1NjcgMzQuMTIyOEM1Ni40NTY3IDMyLjQ4NDEgNTUuMTI2NyAzMS4xNTQxIDUzLjQ4OCAzMS4xNTQxSDQxLjc4MjJDNTYuNjk3MiAxOC42Nzk0IDc1LjMyMzEgMTEuODc1IDk1IDExLjg3NUMxMTcuMjAzIDExLjg3NSAxMzguMDc3IDIwLjUyMyAxNTMuNzc4IDM2LjIyMTdDMTY5LjQ4IDUxLjkyMDUgMTc4LjEyNSA3Mi43OTY3IDE3OC4xMjUgOTVDMTc4LjEyNSAxMTcuMjAzIDE2OS40NzcgMTM4LjA3NyAxNTMuNzc4IDE1My43NzhDMTIxLjM2OCAxODYuMTg1IDY4LjYzMTUgMTg2LjE4NSAzNi4yMjE3IDE1My43NzhDMTIuMjkzNiAxMjkuODQ3IDUuMjQ1NzcgOTQuMjA0NCAxOC4yNjY3IDYyLjk3MzFDMTguODk5MSA2MS40NTkxIDE4LjE4MzYgNTkuNzIyMyAxNi42Njk1IDU5LjA5QzE1LjE1NTUgNTguNDU0NyAxMy40MTg3IDU5LjE3MzEgMTIuNzg2NCA2MC42ODcyQy0xLjE2Mzc2IDk0LjE1MDkgNi4zODU3NyAxMzIuMzM4IDMyLjAyMzkgMTU3Ljk3NkM0OS4zODgxIDE3NS4zNDMgNzIuMTkxMSAxODQuMDIxIDk1IDE4NC4wMThaIi8+PHBhdGggZmlsbD0iI2E3YWFhZCIgZD0iTTQ5LjU3NTEgMTE5LjQzM1YxNDEuOTU3QzQ5LjU3NTEgMTQzLjU5OCA1MC45MDUxIDE0NC45MjUgNTIuNTQzOSAxNDQuOTI1SDEzNy40NTZDMTM5LjA5NSAxNDQuOTI1IDE0MC40MjUgMTQzLjU5OCAxNDAuNDI1IDE0MS45NTdWMTE5LjQzM0MxNDAuNDI1IDEwMi45OCAxMjcuNzQ1IDg5LjQ1NDQgMTExLjY0OSA4OC4wNjJDMTE3LjkxIDgzLjEyMiAxMjEuOTQ3IDc1LjQ4OTQgMTIxLjk0NyA2Ni45MTU2QzEyMS45NDcgNTIuMDU3IDEwOS44NTkgMzkuOTY4MyA5NSAzOS45NjgzQzgwLjE0MTQgMzkuOTY4MyA2OC4wNTI2IDUyLjA1NyA2OC4wNTI2IDY2LjkxNTZDNjguMDUyNiA3NS40ODk0IDcyLjA5MzEgODMuMTI1IDc4LjM1MTIgODguMDYyQzYyLjI1NDcgODkuNDU0NCA0OS41NzUxIDEwMi45OCA0OS41NzUxIDExOS40MzNaTTczLjk5MDEgNjYuOTE1NkM3My45OTAxIDU1LjMzMTUgODMuNDE1OSA0NS45MDU4IDk1IDQ1LjkwNThDMTA2LjU4NCA0NS45MDU4IDExNi4wMSA1NS4zMzE1IDExNi4wMSA2Ni45MTU2QzExNi4wMSA3OC40OTk3IDEwNi41ODQgODcuOTI1NCA5NSA4Ny45MjU0QzgzLjQxNTkgODcuOTI1NCA3My45OTAxIDc4LjQ5OTcgNzMuOTkwMSA2Ni45MTU2Wk04MS4wODU0IDkzLjg2MjlIMTA4LjkxN0MxMjMuMDE5IDkzLjg2MjkgMTM0LjQ4NyAxMDUuMzM0IDEzNC40ODcgMTE5LjQzNlYxMzguOTkxSDU1LjUxMjZWMTE5LjQzNkM1NS41MTI2IDEwNS4zMzQgNjYuOTg2OSA5My44NjI5IDgxLjA4NTQgOTMuODYyOVoiLz48L3N2Zz4=';
+    }
+
+    /**
+     * Screen Options for the Activity Log page (rows per page).
+     */
+    public function add_activity_screen_options() {
+        add_screen_option('per_page', [
+            'label'   => __('Entries per page', 'wpzoom-user-history'),
+            'default' => 30,
+            'option'  => 'wpzoom_user_history_activity_per_page',
+        ]);
+    }
+
+    /**
+     * Persist the Activity Log per-page screen option.
+     *
+     * @param mixed  $status Screen option value (false to not save).
+     * @param string $option Option name.
+     * @param mixed  $value  Submitted value.
+     * @return mixed
+     */
+    public function save_screen_option($status, $option, $value) {
+        if ($option === 'wpzoom_user_history_activity_per_page') {
+            return max(1, min(500, (int) $value));
+        }
+        return $status;
     }
 
     /**
@@ -149,6 +304,41 @@ class WPZOOM_User_History_Settings {
             $page,
             'wpzoom_user_history_retention_section'
         );
+
+        register_setting($group, 'wpzoom_user_history_activity_log_enabled', [
+            'type'              => 'string',
+            'sanitize_callback' => [$this, 'sanitize_checkbox'],
+            'default'           => '1',
+        ]);
+
+        register_setting($group, 'wpzoom_user_history_activity_log_events', [
+            'type'              => 'array',
+            'sanitize_callback' => [$this, 'sanitize_activity_events'],
+            'default'           => WPZOOM_User_History_Activity_Log::get_event_group_slugs(),
+        ]);
+
+        add_settings_section(
+            'wpzoom_user_history_activity_section',
+            __('Activity Log', 'wpzoom-user-history'),
+            [$this, 'render_activity_section_description'],
+            $page
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_activity_log_enabled',
+            __('Activity Log', 'wpzoom-user-history'),
+            [$this, 'render_activity_enabled_field'],
+            $page,
+            'wpzoom_user_history_activity_section'
+        );
+
+        add_settings_field(
+            'wpzoom_user_history_activity_log_events',
+            __('Events to Record', 'wpzoom-user-history'),
+            [$this, 'render_activity_events_field'],
+            $page,
+            'wpzoom_user_history_activity_section'
+        );
     }
 
     /**
@@ -166,7 +356,7 @@ class WPZOOM_User_History_Settings {
 
         add_settings_section(
             'wpzoom_user_history_lock_section',
-            __('Lock Account', 'wpzoom-user-history'),
+            __('Settings', 'wpzoom-user-history'),
             [$this, 'render_lock_section_description'],
             $page
         );
@@ -502,6 +692,20 @@ class WPZOOM_User_History_Settings {
     }
 
     /**
+     * Sanitize the activity log event groups.
+     *
+     * @param mixed $value Submitted array of group slugs.
+     * @return string[] Valid group slugs.
+     */
+    public function sanitize_activity_events($value) {
+        if (!is_array($value)) {
+            return [];
+        }
+        $valid = WPZOOM_User_History_Activity_Log::get_event_group_slugs();
+        return array_values(array_intersect($valid, array_map('sanitize_key', $value)));
+    }
+
+    /**
      * Sanitize retention days value.
      *
      * @param mixed $value Input value.
@@ -740,7 +944,59 @@ class WPZOOM_User_History_Settings {
         <input type="number" name="wpzoom_user_history_retention_days" min="0" step="1" class="small-text"
                value="<?php echo esc_attr($value); ?>" /> <?php esc_html_e('days', 'wpzoom-user-history'); ?>
         <p class="description">
-            <?php esc_html_e('Logs older than this many days are automatically deleted. Set to 0 to keep logs indefinitely.', 'wpzoom-user-history'); ?>
+            <?php esc_html_e('User history and activity log entries older than this many days are automatically deleted. Set to 0 to keep logs indefinitely.', 'wpzoom-user-history'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the activity log section description.
+     */
+    public function render_activity_section_description() {
+        printf(
+            '<p>%s <a href="%s">%s</a></p>',
+            esc_html__('Record a site-wide log of what users do — content edits, uploads, comments, user management, logins, plugin/theme changes and settings changes.', 'wpzoom-user-history'),
+            esc_url(self::get_page_url()),
+            esc_html__('View the Activity Log', 'wpzoom-user-history')
+        );
+    }
+
+    /**
+     * Render the activity log enable field.
+     */
+    public function render_activity_enabled_field() {
+        $value = get_option('wpzoom_user_history_activity_log_enabled', '1');
+        ?>
+        <label>
+            <input type="checkbox" name="wpzoom_user_history_activity_log_enabled" value="1" <?php checked($value, '1'); ?> />
+            <?php esc_html_e('Enable the activity log', 'wpzoom-user-history'); ?>
+        </label>
+        <p class="description">
+            <?php esc_html_e('Entries follow the retention period and IP address setting above.', 'wpzoom-user-history'); ?>
+        </p>
+        <?php
+    }
+
+    /**
+     * Render the activity log event group checkboxes.
+     */
+    public function render_activity_events_field() {
+        $groups  = WPZOOM_User_History_Activity_Log::get_event_groups();
+        $enabled = get_option('wpzoom_user_history_activity_log_events', array_keys($groups));
+        if (!is_array($enabled)) {
+            $enabled = array_keys($groups);
+        }
+        ?>
+        <fieldset>
+            <?php foreach ($groups as $slug => $label) : ?>
+                <label style="display:block; margin-bottom:6px;">
+                    <input type="checkbox" name="wpzoom_user_history_activity_log_events[]" value="<?php echo esc_attr($slug); ?>" <?php checked(in_array($slug, $enabled, true)); ?> />
+                    <?php echo esc_html($label); ?>
+                </label>
+            <?php endforeach; ?>
+        </fieldset>
+        <p class="description">
+            <?php esc_html_e('Untick a group to stop recording those events. Existing entries are kept until they expire.', 'wpzoom-user-history'); ?>
         </p>
         <?php
     }
@@ -748,6 +1004,185 @@ class WPZOOM_User_History_Settings {
     // =========================================================================
     // Lock Account tab fields
     // =========================================================================
+
+    /**
+     * Render the Lock Account overview: stats, how it works, currently locked
+     * users and recent lock/unlock activity. Shown above the settings form.
+     */
+    private function render_lock_overview() {
+        $lock = WPZOOM_User_History::get_instance()->lock;
+        if (!$lock) {
+            return;
+        }
+
+        $locked_count = $lock->get_locked_user_count();
+        $counts       = $lock->get_lock_event_counts(30);
+        $locked_users = $lock->get_locked_users(10);
+        $events       = $lock->get_lock_events(10);
+        $locked_url   = add_query_arg('wpzoom_user_history_filter', 'locked', admin_url('users.php'));
+        $date_format  = get_option('date_format') . ' ' . get_option('time_format');
+        ?>
+        <div class="user-history-overview">
+            <div class="user-history-stats">
+                <a class="user-history-stat" href="<?php echo esc_url($locked_count ? $locked_url : admin_url('users.php')); ?>">
+                    <span class="user-history-stat-value"><?php echo esc_html(number_format_i18n($locked_count)); ?></span>
+                    <span class="user-history-stat-label"><?php esc_html_e('Locked accounts', 'wpzoom-user-history'); ?></span>
+                </a>
+                <div class="user-history-stat">
+                    <span class="user-history-stat-value"><?php echo esc_html(number_format_i18n($counts['lock'])); ?></span>
+                    <span class="user-history-stat-label"><?php esc_html_e('Locked in the last 30 days', 'wpzoom-user-history'); ?></span>
+                </div>
+                <div class="user-history-stat">
+                    <span class="user-history-stat-value"><?php echo esc_html(number_format_i18n($counts['unlock'])); ?></span>
+                    <span class="user-history-stat-label"><?php esc_html_e('Unlocked in the last 30 days', 'wpzoom-user-history'); ?></span>
+                </div>
+            </div>
+
+            <div class="user-history-overview-columns">
+                <div class="user-history-overview-box">
+                    <h2><?php esc_html_e('How it works', 'wpzoom-user-history'); ?></h2>
+                    <p><?php esc_html_e('Locking an account prevents a user from signing in without deleting anything. Their content, role and profile stay intact, and you can unlock them at any time.', 'wpzoom-user-history'); ?></p>
+
+                    <h3><?php esc_html_e('Where to lock a user', 'wpzoom-user-history'); ?></h3>
+                    <ul>
+                        <li>
+                            <?php
+                            printf(
+                                /* translators: %s: link to the Users screen */
+                                esc_html__('On the %s screen, hover over a user and click "Lock" (or "Unlock"). Select several users and choose Lock / Unlock from the Bulk actions menu to change many at once.', 'wpzoom-user-history'),
+                                '<a href="' . esc_url(admin_url('users.php')) . '">' . esc_html__('Users', 'wpzoom-user-history') . '</a>'
+                            );
+                            ?>
+                        </li>
+                        <li><?php esc_html_e('On a user\'s profile page (Users → Edit), use the Lock Account / Unlock Account button in the Account History panel.', 'wpzoom-user-history'); ?></li>
+                        <li><?php esc_html_e('The Status column on the Users screen shows a "Locked" badge, and the "Locked" view at the top filters the list to locked accounts only.', 'wpzoom-user-history'); ?></li>
+                    </ul>
+
+                    <h3><?php esc_html_e('What happens when an account is locked', 'wpzoom-user-history'); ?></h3>
+                    <ul>
+                        <li><?php esc_html_e('All of the user\'s active sessions are destroyed immediately — they are logged out everywhere.', 'wpzoom-user-history'); ?></li>
+                        <li><?php esc_html_e('Login attempts fail with the message configured below, on the login form as well as via XML-RPC and the REST API (application passwords).', 'wpzoom-user-history'); ?></li>
+                        <li><?php esc_html_e('Every lock and unlock is recorded in the user\'s Account History and in the Activity Log, together with who did it.', 'wpzoom-user-history'); ?></li>
+                        <li><?php esc_html_e('You cannot lock your own account, and super admins cannot be locked on Multisite. WP-CLI access is never blocked so administrators can always recover.', 'wpzoom-user-history'); ?></li>
+                    </ul>
+                </div>
+
+                <div class="user-history-overview-box">
+                    <h2>
+                        <?php esc_html_e('Currently locked', 'wpzoom-user-history'); ?>
+                        <?php if ($locked_count > count($locked_users)) : ?>
+                            <a class="user-history-overview-more" href="<?php echo esc_url($locked_url); ?>">
+                                <?php
+                                /* translators: %d: total number of locked users */
+                                echo esc_html(sprintf(__('View all %d', 'wpzoom-user-history'), $locked_count));
+                                ?>
+                            </a>
+                        <?php endif; ?>
+                    </h2>
+
+                    <?php if (empty($locked_users)) : ?>
+                        <p class="description"><?php esc_html_e('No accounts are locked right now.', 'wpzoom-user-history'); ?></p>
+                    <?php else : ?>
+                        <table class="widefat striped user-history-overview-table">
+                            <thead>
+                                <tr>
+                                    <th><?php esc_html_e('User', 'wpzoom-user-history'); ?></th>
+                                    <th><?php esc_html_e('Role', 'wpzoom-user-history'); ?></th>
+                                    <th><?php esc_html_e('Locked', 'wpzoom-user-history'); ?></th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($locked_users as $user) :
+                                $event     = $lock->get_last_lock_event($user->ID);
+                                $locked_by = ($event && $event->changed_by) ? get_userdata($event->changed_by) : null;
+                                $roles     = array_map(static function ($role) {
+                                    return translate_user_role(wp_roles()->get_names()[ $role ] ?? $role);
+                                }, $user->roles);
+                                ?>
+                                <tr>
+                                    <td>
+                                        <?php echo get_avatar($user->ID, 24, '', '', ['class' => 'user-history-activity-avatar']); ?>
+                                        <span class="user-history-activity-user">
+                                            <a href="<?php echo esc_url(get_edit_user_link($user->ID)); ?>"><strong><?php echo esc_html($user->display_name); ?></strong></a><br>
+                                            <span class="user-history-activity-login"><?php echo esc_html($user->user_login); ?></span>
+                                        </span>
+                                    </td>
+                                    <td><?php echo esc_html(implode(', ', $roles)); ?></td>
+                                    <td>
+                                        <?php if ($event) : ?>
+                                            <span title="<?php echo esc_attr(date_i18n($date_format, strtotime($event->created_at))); ?>">
+                                                <?php
+                                                /* translators: %s: human-readable time difference */
+                                                echo esc_html(sprintf(__('%s ago', 'wpzoom-user-history'), human_time_diff(strtotime($event->created_at), current_time('timestamp'))));
+                                                ?>
+                                            </span>
+                                            <?php if ($locked_by) : ?>
+                                                <br><span class="user-history-activity-ago">
+                                                    <?php
+                                                    /* translators: %s: username of the admin who locked the account */
+                                                    echo esc_html(sprintf(__('by %s', 'wpzoom-user-history'), $locked_by->user_login));
+                                                    ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        <?php else : ?>
+                                            &mdash;
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="user-history-overview-actions">
+                                        <?php if (current_user_can('edit_users') && $user->ID !== get_current_user_id()) : ?>
+                                            <a class="button button-small" href="<?php echo esc_url($lock->get_toggle_url($user->ID, false)); ?>"><?php esc_html_e('Unlock', 'wpzoom-user-history'); ?></a>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
+
+                    <h2 class="user-history-overview-subheading"><?php esc_html_e('Recent lock activity', 'wpzoom-user-history'); ?></h2>
+                    <?php if (empty($events)) : ?>
+                        <p class="description"><?php esc_html_e('No lock or unlock events recorded yet.', 'wpzoom-user-history'); ?></p>
+                    <?php else : ?>
+                        <ul class="user-history-overview-events">
+                            <?php foreach ($events as $event) :
+                                $target = get_userdata($event->user_id);
+                                $actor  = $event->changed_by ? get_userdata($event->changed_by) : null;
+                                $target_name = $target ? $target->user_login : sprintf('#%d', $event->user_id);
+                                $actor_name  = $actor ? $actor->user_login : __('system', 'wpzoom-user-history');
+                                $target_html = $target ? '<a href="' . esc_url(get_edit_user_link($target->ID)) . '">' . esc_html($target_name) . '</a>' : esc_html($target_name);
+                                ?>
+                                <li>
+                                    <span class="user-history-lock-badge <?php echo $event->change_type === 'lock' ? 'locked' : 'active'; ?>">
+                                        <?php echo $event->change_type === 'lock' ? esc_html__('Locked', 'wpzoom-user-history') : esc_html__('Unlocked', 'wpzoom-user-history'); ?>
+                                    </span>
+                                    <?php
+                                    echo wp_kses(
+                                        sprintf(
+                                            /* translators: 1: locked/unlocked user (linked), 2: admin who performed the action */
+                                            __('%1$s by %2$s', 'wpzoom-user-history'),
+                                            $target_html,
+                                            '<strong>' . esc_html($actor_name) . '</strong>'
+                                        ),
+                                        ['a' => ['href' => []], 'strong' => []]
+                                    );
+                                    ?>
+                                    <span class="user-history-activity-ago" title="<?php echo esc_attr(date_i18n($date_format, strtotime($event->created_at))); ?>">
+                                        &middot;
+                                        <?php
+                                        /* translators: %s: human-readable time difference */
+                                        echo esc_html(sprintf(__('%s ago', 'wpzoom-user-history'), human_time_diff(strtotime($event->created_at), current_time('timestamp'))));
+                                        ?>
+                                    </span>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
 
     /**
      * Render the lock settings section description.
@@ -1254,6 +1689,21 @@ class WPZOOM_User_History_Settings {
     }
 
     /**
+     * AJAX handler for clearing the activity log.
+     */
+    public function ajax_clear_activity_log() {
+        check_ajax_referer('wpzoom_user_history_clear_activity', 'nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Unauthorized', 'wpzoom-user-history')]);
+        }
+
+        WPZOOM_User_History::get_instance()->activity_log->clear();
+
+        wp_send_json_success(['message' => __('The activity log has been cleared.', 'wpzoom-user-history')]);
+    }
+
+    /**
      * AJAX handler for clearing all logs.
      */
     public function ajax_clear_all_logs() {
@@ -1282,23 +1732,32 @@ class WPZOOM_User_History_Settings {
     // =========================================================================
 
     /**
-     * Render the settings page with tab navigation.
+     * Render a settings section page (one per submenu).
      */
     public function render_settings_page() {
         $tabs       = $this->get_tabs();
         $active_tab = $this->get_active_tab();
+
+        // Custom top-level pages don't get options-head.php, which is what
+        // turns ?settings-updated=true into the "Settings saved." notice.
+        // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display-only notice after the Settings API redirect
+        if (!empty($_GET['settings-updated'])) {
+            add_settings_error('general', 'settings_updated', __('Settings saved.', 'wpzoom-user-history'), 'success');
+        }
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('User History Settings', 'wpzoom-user-history'); ?></h1>
+            <h1>
+                <?php
+                /* translators: %s: settings section name */
+                echo esc_html(sprintf(__('User History — %s', 'wpzoom-user-history'), $tabs[ $active_tab ]));
+                ?>
+            </h1>
 
-            <h2 class="nav-tab-wrapper">
-                <?php foreach ($tabs as $tab => $label) : ?>
-                    <a href="<?php echo esc_url(add_query_arg(['page' => 'wpzoom-user-history', 'tab' => $tab], admin_url('options-general.php'))); ?>"
-                       class="nav-tab <?php echo $active_tab === $tab ? 'nav-tab-active' : ''; ?>">
-                        <?php echo esc_html($label); ?>
-                    </a>
-                <?php endforeach; ?>
-            </h2>
+            <?php settings_errors(); ?>
+
+            <?php if ($active_tab === 'lock') : ?>
+                <?php $this->render_lock_overview(); ?>
+            <?php endif; ?>
 
             <form method="post" action="options.php">
                 <?php
@@ -1316,6 +1775,77 @@ class WPZOOM_User_History_Settings {
                 <?php $this->render_username_test_tool(); ?>
             <?php endif; ?>
         </div>
+        <?php
+    }
+
+    /**
+     * Render the Activity Log page (parent menu item).
+     */
+    public function render_activity_log_page() {
+        $log = WPZOOM_User_History::get_instance()->activity_log;
+
+        require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-activity-list-table.php';
+        $table = new WPZOOM_User_History_Activity_List_Table($log);
+        $table->prepare_items();
+        ?>
+        <div class="wrap user-history-activity-wrap">
+            <h1 class="wp-heading-inline"><?php esc_html_e('Activity Log', 'wpzoom-user-history'); ?></h1>
+            <a href="<?php echo esc_url(self::get_page_url('general') . '#wpzoom_user_history_activity_section'); ?>" class="page-title-action"><?php esc_html_e('Settings', 'wpzoom-user-history'); ?></a>
+            <button type="button" class="page-title-action" id="wpzoom-user-history-clear-activity" style="color:#b32d2e; border-color:#b32d2e;"><?php esc_html_e('Clear Activity Log', 'wpzoom-user-history'); ?></button>
+            <hr class="wp-header-end">
+
+            <?php if (!$log->is_enabled()) : ?>
+                <div class="notice notice-warning inline">
+                    <p>
+                        <?php esc_html_e('The activity log is currently disabled — new events are not being recorded.', 'wpzoom-user-history'); ?>
+                        <a href="<?php echo esc_url(self::get_page_url('general')); ?>"><?php esc_html_e('Enable it in General settings.', 'wpzoom-user-history'); ?></a>
+                    </p>
+                </div>
+            <?php endif; ?>
+
+            <div id="wpzoom-user-history-clear-activity-message" class="notice inline" style="display:none;"><p></p></div>
+
+            <form method="get">
+                <input type="hidden" name="page" value="<?php echo esc_attr(self::MENU_SLUG); ?>" />
+                <?php
+                $table->search_box(__('Search activity', 'wpzoom-user-history'), 'wpzoom-activity');
+                $table->display();
+                ?>
+            </form>
+        </div>
+
+        <script>
+        (function() {
+            var btn = document.getElementById('wpzoom-user-history-clear-activity');
+            if (!btn) return;
+
+            btn.addEventListener('click', function() {
+                if (!confirm('<?php echo esc_js(__('Delete ALL activity log entries? This cannot be undone.', 'wpzoom-user-history')); ?>')) {
+                    return;
+                }
+
+                btn.disabled = true;
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '<?php echo esc_url(admin_url('admin-ajax.php')); ?>');
+                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                xhr.onload = function() {
+                    var box = document.getElementById('wpzoom-user-history-clear-activity-message');
+                    var res;
+                    try { res = JSON.parse(xhr.responseText); } catch (e) { res = null; }
+                    if (res && res.success) {
+                        window.location.reload();
+                        return;
+                    }
+                    box.className = 'notice notice-error inline';
+                    box.querySelector('p').textContent = (res && res.data && res.data.message) || '<?php echo esc_js(__('Something went wrong.', 'wpzoom-user-history')); ?>';
+                    box.style.display = 'block';
+                    btn.disabled = false;
+                };
+                xhr.send('action=wpzoom_user_history_clear_activity&nonce=<?php echo esc_js(wp_create_nonce('wpzoom_user_history_clear_activity')); ?>');
+            });
+        })();
+        </script>
         <?php
     }
 

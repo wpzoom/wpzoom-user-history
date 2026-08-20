@@ -34,6 +34,12 @@ class WPZOOM_User_History {
     const TABLE_NAME = 'user_history';
 
     /**
+     * Database schema version. Bump when create_table() changes so existing
+     * installs re-run dbDelta on upgrade.
+     */
+    const DB_VERSION = '2';
+
+    /**
      * User meta key for lock status.
      */
     const LOCKED_META_KEY = 'wpzoom_user_history_locked';
@@ -100,6 +106,13 @@ class WPZOOM_User_History {
     public $username_restrictions;
 
     /**
+     * Activity log instance.
+     *
+     * @var WPZOOM_User_History_Activity_Log
+     */
+    public $activity_log;
+
+    /**
      * Get singleton instance.
      *
      * @return WPZOOM_User_History
@@ -132,6 +145,7 @@ class WPZOOM_User_History {
     public function activate() {
         $this->create_table();
         update_option('wpzoom_user_history_version', WPZOOM_USER_HISTORY_VERSION);
+        update_option('wpzoom_user_history_db_version', self::DB_VERSION);
 
         // Schedule daily cleanup if not already scheduled
         if (!wp_next_scheduled('wpzoom_user_history_cleanup')) {
@@ -168,6 +182,10 @@ class WPZOOM_User_History {
                 $days
             )
         );
+
+        if ($this->activity_log) {
+            $this->activity_log->cleanup($days);
+        }
     }
 
     /**
@@ -198,8 +216,28 @@ class WPZOOM_User_History {
             KEY old_value_search (field_name, old_value(100))
         ) $charset_collate;";
 
+        $activity_table = $wpdb->prefix . 'user_activity_log';
+
+        $activity_sql = "CREATE TABLE $activity_table (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            action varchar(50) NOT NULL,
+            object_type varchar(50) NOT NULL DEFAULT '',
+            object_id bigint(20) unsigned NOT NULL DEFAULT 0,
+            object_name varchar(255) NOT NULL DEFAULT '',
+            context longtext,
+            ip_address varchar(45) DEFAULT '',
+            created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            KEY user_id (user_id),
+            KEY action (action),
+            KEY object (object_type, object_id),
+            KEY created_at (created_at)
+        ) $charset_collate;";
+
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta($sql);
+        dbDelta($activity_sql);
     }
 
     /**
@@ -217,6 +255,7 @@ class WPZOOM_User_History {
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-login-tracker.php';
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-dashboard-access.php';
         require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-username-restrictions.php';
+        require_once WPZOOM_USER_HISTORY_PLUGIN_DIR . 'includes/class-activity-log.php';
 
         // Create feature instances (each registers its own hooks in constructor)
         $this->tracker               = new WPZOOM_User_History_Tracker($this);
@@ -226,6 +265,7 @@ class WPZOOM_User_History {
         $this->login_tracker         = new WPZOOM_User_History_Login_Tracker($this);
         $this->dashboard_access      = new WPZOOM_User_History_Dashboard_Access();
         $this->username_restrictions = new WPZOOM_User_History_Username_Restrictions();
+        $this->activity_log          = new WPZOOM_User_History_Activity_Log($this);
     }
 
     /**
@@ -233,6 +273,11 @@ class WPZOOM_User_History {
      */
     private function maybe_upgrade() {
         $current_version = get_option('wpzoom_user_history_version', '0');
+
+        if (get_option('wpzoom_user_history_db_version', '1') !== self::DB_VERSION) {
+            $this->create_table();
+            update_option('wpzoom_user_history_db_version', self::DB_VERSION);
+        }
 
         if (version_compare($current_version, WPZOOM_USER_HISTORY_VERSION, '<')) {
             $this->create_table();
@@ -466,7 +511,7 @@ class WPZOOM_User_History {
      *
      * @return string IP address or empty string.
      */
-    private function get_client_ip() {
+    public function get_client_ip() {
         $headers = [
             'HTTP_CF_CONNECTING_IP', // Cloudflare
             'HTTP_X_FORWARDED_FOR',  // Standard proxy header

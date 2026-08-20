@@ -103,6 +103,13 @@ class WPZOOM_User_History_Lock {
 
         $this->plugin->log_change($user_id, get_current_user_id(), 'account_locked', 'Account Locked', '', 'Locked', 'lock');
 
+        /**
+         * Fires after a user account has been locked.
+         *
+         * @param int $user_id ID of the locked user.
+         */
+        do_action('wpzoom_user_history_user_locked', $user_id);
+
         return true;
     }
 
@@ -126,7 +133,132 @@ class WPZOOM_User_History_Lock {
 
         $this->plugin->log_change($user_id, get_current_user_id(), 'account_locked', 'Account Unlocked', 'Locked', '', 'unlock');
 
+        /**
+         * Fires after a user account has been unlocked.
+         *
+         * @param int $user_id ID of the unlocked user.
+         */
+        do_action('wpzoom_user_history_user_unlocked', $user_id);
+
         return true;
+    }
+
+    /**
+     * Number of currently locked accounts.
+     *
+     * @return int
+     */
+    public function get_locked_user_count() {
+        global $wpdb;
+
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Counting locked users from usermeta
+        return (int) $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT COUNT(DISTINCT user_id) FROM {$wpdb->usermeta} WHERE meta_key = %s AND meta_value = %s",
+                WPZOOM_User_History::LOCKED_META_KEY,
+                '1'
+            )
+        );
+    }
+
+    /**
+     * Currently locked users.
+     *
+     * @param int $limit Max users to return.
+     * @return WP_User[]
+     */
+    public function get_locked_users($limit = 10) {
+        return get_users([
+            'meta_key'   => WPZOOM_User_History::LOCKED_META_KEY,
+            'meta_value' => '1',
+            'number'     => (int) $limit,
+            'orderby'    => 'ID',
+            'order'      => 'DESC',
+        ]);
+    }
+
+    /**
+     * Lock/unlock events from the history table, newest first.
+     *
+     * @param int $limit Max rows.
+     * @param int $days  Only events from the last N days (0 = all).
+     * @return array Rows with user_id, changed_by, change_type, created_at.
+     */
+    public function get_lock_events($limit = 10, $days = 0) {
+        global $wpdb;
+        $table = $wpdb->prefix . WPZOOM_User_History::TABLE_NAME;
+
+        // phpcs:disable WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name from $wpdb->prefix
+        if ($days > 0) {
+            return $wpdb->get_results($wpdb->prepare(
+                "SELECT user_id, changed_by, change_type, created_at FROM $table WHERE change_type IN ('lock','unlock') AND created_at >= DATE_SUB(NOW(), INTERVAL %d DAY) ORDER BY created_at DESC, id DESC LIMIT %d",
+                (int) $days,
+                (int) $limit
+            ));
+        }
+        return $wpdb->get_results($wpdb->prepare(
+            "SELECT user_id, changed_by, change_type, created_at FROM $table WHERE change_type IN ('lock','unlock') ORDER BY created_at DESC, id DESC LIMIT %d",
+            (int) $limit
+        ));
+        // phpcs:enable
+    }
+
+    /**
+     * Count lock and unlock events in the last N days.
+     *
+     * @param int $days Days.
+     * @return array { lock: int, unlock: int }
+     */
+    public function get_lock_event_counts($days = 30) {
+        global $wpdb;
+        $table = $wpdb->prefix . WPZOOM_User_History::TABLE_NAME;
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name from $wpdb->prefix
+        $rows = $wpdb->get_results($wpdb->prepare(
+            "SELECT change_type, COUNT(*) AS total FROM $table WHERE change_type IN ('lock','unlock') AND created_at >= DATE_SUB(NOW(), INTERVAL %d DAY) GROUP BY change_type",
+            (int) $days
+        ));
+
+        $counts = ['lock' => 0, 'unlock' => 0];
+        foreach ((array) $rows as $row) {
+            $counts[ $row->change_type ] = (int) $row->total;
+        }
+        return $counts;
+    }
+
+    /**
+     * When (and by whom) a user was most recently locked, from the history table.
+     *
+     * @param int $user_id User ID.
+     * @return object|null Row with changed_by and created_at, or null.
+     */
+    public function get_last_lock_event($user_id) {
+        global $wpdb;
+        $table = $wpdb->prefix . WPZOOM_User_History::TABLE_NAME;
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Table name from $wpdb->prefix
+        return $wpdb->get_row($wpdb->prepare(
+            "SELECT changed_by, created_at FROM $table WHERE user_id = %d AND change_type = 'lock' ORDER BY created_at DESC, id DESC LIMIT 1",
+            (int) $user_id
+        ));
+    }
+
+    /**
+     * Nonce-protected URL that locks or unlocks a user (handled on users.php,
+     * which redirects back to the referring page).
+     *
+     * @param int  $user_id User ID.
+     * @param bool $lock    True to lock, false to unlock.
+     * @return string
+     */
+    public function get_toggle_url($user_id, $lock) {
+        return wp_nonce_url(
+            add_query_arg([
+                'action' => $lock ? 'wpzoom_user_history_lock' : 'wpzoom_user_history_unlock',
+                'user'   => (int) $user_id,
+            ], admin_url('users.php')),
+            'wpzoom_user_history_lock_' . (int) $user_id
+        );
     }
 
     /**

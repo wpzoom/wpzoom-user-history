@@ -8,11 +8,26 @@ Stable tag: 1.4.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Track changes made to user accounts, lock/unlock users, change usernames, and monitor login activity.
+Track changes made to user accounts, keep a lightweight site activity log, lock/unlock users, change usernames, restrict dashboard access and usernames, and monitor login activity.
 
 == Description ==
 
-User History tracks all changes made to user profiles and displays a complete history log on the user edit page. It also lets admins lock or unlock user accounts, change usernames, monitor login/logout activity, manage active sessions, and search for users by their previous details.
+User History tracks all changes made to user profiles and displays a complete history log on the user edit page. It also keeps a lightweight site-wide activity log, lets admins lock or unlock user accounts, change usernames, restrict dashboard access and registration usernames, monitor login/logout activity, manage active sessions, and search for users by their previous details.
+
+Everything lives under a dedicated **User History** admin menu: Activity Log, General, Lock Account, Dashboard Access and Username Restrictions.
+
+**Activity Log:**
+
+* **Lightweight Site Activity Log** - A simple, fast log of what users do on your site, without the bloat of full audit-log plugins
+* **Content Events** - Posts, pages and custom post types created, updated, published, unpublished, trashed, restored or deleted; categories and tags created, edited or deleted
+* **Media & Comments** - File uploads, updates and deletions; comments posted, approved, unapproved, marked as spam, trashed or deleted
+* **User Events** - Users created, registered, deleted, profile and role changes, password resets, username changes, account locks/unlocks
+* **Login Events** - Successful logins, logouts and failed login attempts
+* **Plugins, Themes & Core** - Plugin activation/deactivation/install/update/deletion, theme switches/installs/updates/deletions, WordPress core updates
+* **Settings Changes** - Changes to key WordPress settings (site title, admin email, registration, permalinks, reading/discussion settings...) with old and new values
+* **Filter & Search** - Filter by user, event group or specific event; search by object name or IP; adjustable rows per page
+* **Choose What to Record** - Toggle each event group on or off, or disable the log entirely
+* **Shared Retention & Privacy** - Follows the same retention period and IP-tracking setting as the user history
 
 **Profile Change Tracking:**
 
@@ -40,7 +55,7 @@ User History tracks all changes made to user profiles and displays a complete hi
 * **Bulk Lock/Unlock** - Lock or unlock multiple users at once from the All Users page
 * **Row Actions** - Quickly lock or unlock individual users from the All Users list
 * **Locked Users Filter** - Filter the All Users list to show only locked accounts
-* **Custom Lock Message** - Set a custom message shown to locked users on the login screen (Settings > User History)
+* **Custom Lock Message** - Set a custom message shown to locked users on the login screen (User History > Lock Account)
 * **WP-CLI Access** - Locked users can still be managed via WP-CLI
 
 **Dashboard Access Restriction:**
@@ -74,7 +89,7 @@ User History tracks all changes made to user profiles and displays a complete hi
 
 **Privacy & Compliance:**
 
-* **IP Tracking Toggle** - Enable or disable IP address recording for GDPR compliance (Settings > User History)
+* **IP Tracking Toggle** - Enable or disable IP address recording for GDPR compliance (User History > General)
 * **Configurable Retention** - Set how long logs are kept (1-365+ days, or keep forever)
 * **Automatic Cleanup** - Daily cron job removes logs older than the configured retention period
 
@@ -161,15 +176,15 @@ Locked users are logged out immediately and cannot log back in until unlocked.
 
 = How do I customize the locked account message? =
 
-Go to Settings > User History. You can set a custom message that locked users will see when they try to log in. Leave it empty to use the default message.
+Go to User History > Lock Account. You can set a custom message that locked users will see when they try to log in. Leave it empty to use the default message.
 
 = How do I clear a user's history? =
 
-On the user edit page, scroll down to the Account History section and click the "Clear Log" button. To clear all logs for every user at once, go to Settings > User History and click "Clear All Logs".
+On the user edit page, scroll down to the Account History section and click the "Clear Log" button. To clear all logs for every user at once, go to User History > General and click "Clear All Logs".
 
 = How do I control how long logs are kept? =
 
-Go to Settings > User History. Under "Data Retention", set the number of days to keep logs (default: 30). Old logs are automatically deleted daily. Set to 0 to keep logs indefinitely.
+Go to User History > General. Under "Data Retention", set the number of days to keep logs (default: 30). Old logs are automatically deleted daily. Set to 0 to keep logs indefinitely.
 
 = Can I see when users log in and out? =
 
@@ -181,7 +196,7 @@ On the user edit page, scroll down to Account History and click the "Sessions" t
 
 = Can I disable IP address tracking? =
 
-Yes. Go to Settings > User History and uncheck "Record IP addresses" under the Privacy section. This helps with GDPR compliance.
+Yes. Go to User History > General and uncheck "Record IP addresses" under the Privacy section. This helps with GDPR compliance.
 
 = I was using the Lock User Account plugin. Will my locked users be migrated? =
 
@@ -189,7 +204,7 @@ Yes. When you activate User History, any users locked with the Lock User Account
 
 = How do I block non-admins from accessing the dashboard? =
 
-Go to Settings > User History > Dashboard Access tab. Enable "Restrict Dashboard Access", choose which users keep access (by role preset or a specific capability), and set the redirect URL for everyone else. You can optionally keep profile pages accessible, show a message on the login screen, and allowlist specific admin URLs.
+Go to User History > Dashboard Access. Enable "Restrict Dashboard Access", choose which users keep access (by role preset or a specific capability), and set the redirect URL for everyone else. You can optionally keep profile pages accessible, show a message on the login screen, and allowlist specific admin URLs.
 
 = I was using the Remove Dashboard Access plugin. Will my settings be migrated? =
 
@@ -197,11 +212,23 @@ Yes. If the Remove Dashboard Access plugin is active when you update, its settin
 
 = How do I restrict which usernames people can register with? =
 
-Go to Settings > User History > Username Restrictions tab and enable "Restrict Usernames". You can block exact usernames, block text fragments anywhere in a username, require a prefix/suffix/substring, set a minimum and maximum length, and disallow spaces. Use the "Test Usernames" tool at the bottom of the tab to see how your saved rules evaluate sample usernames.
+Go to User History > Username Restrictions and enable "Restrict Usernames". You can block exact usernames, block text fragments anywhere in a username, require a prefix/suffix/substring, set a minimum and maximum length, and disallow spaces. Use the "Test Usernames" tool at the bottom of the page to see how your saved rules evaluate sample usernames.
 
 = Do username restrictions affect existing accounts or administrators? =
 
 Existing accounts are never affected — only new registrations are checked. By default, users who can create accounts (administrators) bypass the rules when adding users in wp-admin or changing usernames; enable "Also apply the rules to usernames chosen by administrators" under Advanced to enforce them there too.
+
+= What does the Activity Log record? =
+
+Go to User History > Activity Log to see a chronological list of actions performed on your site: content changes, uploads, comments, user management, logins, plugin/theme/core changes and settings changes. Each entry shows the date, the user (with avatar), the event, a description linking to the affected item where possible, and the IP address (if IP tracking is enabled). Use the dropdowns to filter by user, event group or specific event, or search by name/IP.
+
+= Can I turn off some activity events, or the whole activity log? =
+
+Yes. Go to User History > General, scroll to "Activity Log", and untick the event groups you don't need — or untick "Enable the activity log" to stop recording entirely. Activity entries follow the same retention period as user history logs.
+
+= Is the Activity Log a replacement for a full audit log plugin? =
+
+It's a deliberately lightweight alternative: a single table, no external services, no dashboards or alerts. It covers the events most sites care about. Developers can record their own events with `WPZOOM_User_History::get_instance()->activity_log->log( $action, $object_type, $object_id, $object_name, $context )` and describe them via the `wpzoom_user_history_activity_log_description` filter.
 
 = I was using the Restrict Usernames plugin. Will my settings be migrated? =
 
@@ -215,9 +242,12 @@ Yes. If the Restrict Usernames plugin is active when you update, its settings ar
 == Changelog ==
 
 = 1.4.0 =
+* New top-level "User History" admin menu with Activity Log, General, Lock Account, Dashboard Access and Username Restrictions pages (old Settings > User History links redirect)
+* Added a lightweight Activity Log: content, media, comments, users, logins, plugins/themes/core and settings events, with filters, search, per-group toggles and shared retention
 * Added Username Restrictions: block specific usernames or words, require a prefix/suffix/substring, enforce length limits, and disallow spaces in usernames chosen at registration
 * Added a custom error message for restricted usernames and a "Test Usernames" tool on the settings page
 * Optionally apply username rules to administrators (Add New User and Change Username)
+* Lock Account page now shows an overview: locked-account stats, how locking works, the currently locked users with one-click Unlock, and recent lock/unlock activity
 * Automatic settings migration from the Restrict Usernames plugin
 
 = 1.3.0 =

@@ -65,7 +65,7 @@ A WordPress plugin that tracks changes made to user accounts, monitors login act
 1. Download the plugin and upload to `/wp-content/plugins/wpzoom-user-history/`
 2. Activate through the 'Plugins' menu in WordPress
 3. Visit any user's edit page to see their Account History section
-4. Configure settings at **Settings > User History**
+4. Configure settings under the **User History** admin menu
 
 ## Usage
 
@@ -91,7 +91,7 @@ On the All Users page, use the search box to search for any previous email, user
 
 ### Configuring Settings
 
-Go to **Settings > User History** to configure:
+Go to **User History** in the admin menu (General / Lock Account / Dashboard Access / Username Restrictions) to configure:
 - Custom locked account message
 - IP address tracking (enable/disable)
 - Data retention period (default: 30 days)
